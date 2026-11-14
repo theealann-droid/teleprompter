@@ -49,6 +49,17 @@ body.cam .zm{display:flex}
 body.cam #fade{background:rgba(0,0,0,.38)}
 body.cam #txt{text-shadow:0 2px 10px #000,0 0 3px #000}
 #hud .chip.rec{background:#ff2d2d;color:#fff}
+#lib{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:10px 12px;display:grid;gap:8px}
+.lr{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lr>span{width:58px;color:var(--mt);font-size:16px}
+select{flex:1;min-width:150px;min-height:48px;background:#222;color:#fff;border:2px solid #3a3a3a;border-radius:12px;font:inherit;font-size:18px;padding:0 10px}
+.lr button{min-height:48px;padding:0 14px;font-size:17px}
+#dlg{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
+#dlg.open{display:flex}
+#dlg .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(520px,100%);display:flex;flex-direction:column;gap:12px}
+#dlg .ft{display:flex;gap:10px;justify-content:flex-end}
+#dlgI{min-height:52px;background:#222;color:#fff;border:2px solid var(--ln);border-radius:12px;font:inherit;font-size:20px;padding:0 12px;outline:none;-webkit-user-select:text;user-select:text}
+#dlgI:focus{border-color:var(--ac)}
 #done{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.9);padding:16px}
 #done.open{display:flex}
 #done .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px;overflow:auto}
@@ -113,6 +124,10 @@ body.hide #hud{opacity:.35}
 <div id="setup">
   <div class="l">
     <h1>TELE<span>PROMPTER</span></h1>
+    <div id="lib">
+      <div class="lr"><span>Canal</span><select id="chSel"></select><button id="chNew">+ Canal</button><button id="chRen">Renombrar</button><button id="chDel">Eliminar</button></div>
+      <div class="lr"><span>Guion</span><select id="scSel"></select><button id="scNew">+ Guion</button><button id="scRen">Renombrar</button><button id="scDup">Duplicar</button><button id="scMov">Mover</button><button id="scDel">Eliminar</button></div>
+    </div>
     <textarea id="script" spellcheck="false" placeholder="Pega aquí tu guion..."></textarea>
     <div class="hint">Marcas (línea sola): <b>[PAUSA]</b> <b>[CORTE]</b> <b>[ENFATIZAR: texto]</b>. No cuentan como palabras. <span id="hk1"></span></div>
   </div>
@@ -139,7 +154,10 @@ body.hide #hud{opacity:.35}
       <div id="camst" class="hint"></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button id="open">Abrir guion (.txt)</button><button id="saveTxt">Guardar guion (.txt)</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button id="bkExp">Copia de seguridad</button><button id="bkImp">Restaurar copia</button></div>
     <input type="file" id="file" accept=".txt,text/plain" style="display:none">
+    <input type="file" id="bkFile" accept=".json,application/json" style="display:none">
+    <div class="hint">Los guiones se guardan en este dispositivo. Haz una copia de seguridad de vez en cuando.</div>
     <button id="keysBtn">Personalizar botones</button>
     <div class="hint">Atajos: <span id="hk2"></span></div>
     <div id="stats"></div>
@@ -152,6 +170,15 @@ body.hide #hud{opacity:.35}
     <div class="hint">Pulsa una casilla y luego la tecla que quieras (también sirven pedales o controles que envíen teclas). <b>Supr</b>/<b>Retroceso</b> la vacía, <b>Esc</b> cancela.</div>
     <div class="lst" id="klist"></div>
     <div class="ft"><button id="kreset">Restablecer</button><button class="pri" id="kclose">Listo</button></div>
+  </div>
+</div>
+<div id="dlg">
+  <div class="box">
+    <h2 id="dlgT" style="margin:0;font-size:22px"></h2>
+    <div class="hint" id="dlgM"></div>
+    <input id="dlgI" type="text" autocomplete="off" spellcheck="false">
+    <select id="dlgS"></select>
+    <div class="ft"><button id="dlgC">Cancelar</button><button class="pri" id="dlgO">Aceptar</button></div>
   </div>
 </div>
 <div id="done">
@@ -194,7 +221,7 @@ body.hide #hud{opacity:.35}
 var $=function(i){return document.getElementById(i)};
 var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"],zoomIn:["z"],zoomOut:["x"],swap:["c"]};
 function cloneKeys(k){var o={};for(var a in k)o[a]=[k[a][0]||"",k[a][1]||""];return o}
-var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1},S=Object.assign({},D);
+var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,lib:null},S=Object.assign({},D);
 try{var j=JSON.parse(localStorage.getItem(KEY)||"null");if(j)S=Object.assign({},D,j)}catch(e){}
 (function(){var d=cloneKeys(DEFKEYS),u=S.keys||{};for(var a in d)if(u[a]&&u[a].length)d[a]=[u[a][0]||"",u[a][1]||""];S.keys=d})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -381,7 +408,7 @@ function unlockWake(){try{if(wake){wake.release();wake=null}}catch(e){}}
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&running)lockWake()});
 
 function start(){
-  S.script=script.value;save();
+  syncScript();save();
   if(!/\S/.test(S.script)){script.focus();return}
   running=true;document.body.classList.add("running");
   $("panelSlot").appendChild(panel);
@@ -435,8 +462,144 @@ bindRange("cw","cw",function(v){return v+"%"},relayout);
 bindRange("lh","lh",function(v){return(+v).toFixed(2)},relayout);
 $("mir").addEventListener("click",function(){S.mir=!S.mir;save();applyCss()});
 
-script.value=S.script||"";
-script.addEventListener("input",function(){S.script=script.value;save();updStats()});
+/* ---- Biblioteca: canales y guiones ---- */
+function newId(){return Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4)}
+function mkScript(title,text){return{id:newId(),title:title,text:text||"",t:Date.now()}}
+function ensureLib(){
+  var L=S.lib;
+  if(!L||!L.channels||!L.channels.length){
+    var sc=mkScript("Guion 1",S.script||""),ch={id:newId(),name:"General",last:sc.id,scripts:[sc]};
+    L=S.lib={channels:[ch],cur:{c:ch.id,s:sc.id}};
+  }
+  L.channels.forEach(function(c){if(!c.scripts||!c.scripts.length)c.scripts=[mkScript("Guion 1","")]});
+  if(!L.cur||!chById(L.cur.c))L.cur={c:L.channels[0].id,s:""};
+  var c=chById(L.cur.c);
+  if(!scIn(c,L.cur.s))L.cur.s=scIn(c,c.last)?c.last:c.scripts[0].id;
+  c.last=L.cur.s;
+}
+function chById(id){var a=S.lib.channels;for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
+function scIn(c,id){if(!c)return null;for(var i=0;i<c.scripts.length;i++)if(c.scripts[i].id===id)return c.scripts[i];return null}
+function curCh(){return chById(S.lib.cur.c)}
+function curSc(){return scIn(curCh(),S.lib.cur.s)}
+function syncScript(){var s=curSc();if(s&&s.text!==script.value){s.text=script.value;s.t=Date.now()}S.script=script.value}
+function loadCur(){script.value=curSc().text;S.script=script.value;updStats()}
+function renderLib(){
+  var ch=curCh(),h="";
+  S.lib.channels.forEach(function(c){h+='<option value="'+c.id+'"'+(c.id===ch.id?" selected":"")+'>'+esc(c.name)+" ("+c.scripts.length+")</option>"});
+  $("chSel").innerHTML=h;h="";
+  ch.scripts.forEach(function(s){h+='<option value="'+s.id+'"'+(s.id===S.lib.cur.s?" selected":"")+'>'+esc(s.title)+"</option>"});
+  $("scSel").innerHTML=h;
+}
+function selectSc(c,s){S.lib.cur={c:c.id,s:s.id};c.last=s.id;save();renderLib();loadCur()}
+function dlgOpen(o,cb){
+  $("dlgT").textContent=o.title;$("dlgM").textContent=o.msg||"";$("dlgM").style.display=o.msg?"":"none";
+  var I=$("dlgI"),Sl=$("dlgS");
+  I.style.display=o.input!=null?"":"none";I.value=o.input||"";
+  Sl.style.display=o.options?"":"none";
+  if(o.options){Sl.innerHTML=o.options.map(function(x){return'<option value="'+x[0]+'">'+esc(x[1])+"</option>"}).join("");if(o.value)Sl.value=o.value}
+  $("dlgO").textContent=o.ok||"Aceptar";$("dlgO").style.background=o.danger?"#ff2d2d":"";$("dlgO").style.borderColor=o.danger?"#ff2d2d":"";
+  dlgCb=cb;dlgReq=o.input!=null;$("dlg").classList.add("open");
+  if(o.input!=null)setTimeout(function(){I.focus();I.select()},50);
+}
+var dlgCb=null,dlgReq=false;
+function dlgClose(){$("dlg").classList.remove("open");dlgCb=null}
+function dlgAccept(){
+  var t=$("dlgI").value.trim();if(dlgReq&&!t)return;
+  var cb=dlgCb,v={text:t,sel:$("dlgS").value};dlgClose();if(cb)cb(v);
+}
+$("dlgO").addEventListener("click",dlgAccept);$("dlgC").addEventListener("click",dlgClose);
+$("dlgI").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();dlgAccept()}else if(e.key==="Escape"){e.preventDefault();dlgClose()}});
+$("chSel").addEventListener("change",function(){
+  syncScript();var c=chById(this.value);if(!c)return;
+  var s=scIn(c,c.last)||c.scripts[0];selectSc(c,s);
+});
+$("scSel").addEventListener("change",function(){
+  syncScript();var c=curCh(),s=scIn(c,this.value);if(s)selectSc(c,s);
+});
+$("chNew").addEventListener("click",function(){
+  dlgOpen({title:"Nuevo canal",msg:"Por ejemplo: el nombre de tu canal de YouTube.",input:""},function(v){
+    syncScript();var s=mkScript("Guion 1",""),c={id:newId(),name:v.text,last:s.id,scripts:[s]};
+    S.lib.channels.push(c);selectSc(c,s);
+  });
+});
+$("chRen").addEventListener("click",function(){
+  dlgOpen({title:"Renombrar canal",input:curCh().name},function(v){curCh().name=v.text;save();renderLib()});
+});
+$("chDel").addEventListener("click",function(){
+  var c=curCh(),n=c.scripts.length;
+  dlgOpen({title:"Eliminar canal",msg:"Se eliminará el canal \""+c.name+"\" y sus "+n+" guion"+(n===1?"":"es")+". No se puede deshacer.",ok:"Eliminar",danger:true},function(){
+    var a=S.lib.channels;a.splice(a.indexOf(c),1);
+    if(!a.length){var s=mkScript("Guion 1",""),g={id:newId(),name:"General",last:s.id,scripts:[s]};a.push(g)}
+    S.lib.cur={c:a[0].id,s:""};ensureLib();save();renderLib();loadCur();
+  });
+});
+$("scNew").addEventListener("click",function(){
+  syncScript();var c=curCh();
+  dlgOpen({title:"Nuevo guion",input:"Guion "+(c.scripts.length+1)},function(v){
+    var s=mkScript(v.text,"");c.scripts.push(s);selectSc(c,s);script.focus();
+  });
+});
+$("scRen").addEventListener("click",function(){
+  dlgOpen({title:"Renombrar guion",input:curSc().title},function(v){curSc().title=v.text;save();renderLib()});
+});
+$("scDup").addEventListener("click",function(){
+  syncScript();var c=curCh(),o=curSc(),s=mkScript(o.title+" (copia)",o.text);
+  c.scripts.splice(c.scripts.indexOf(o)+1,0,s);selectSc(c,s);
+});
+$("scMov").addEventListener("click",function(){
+  var c=curCh(),o=curSc(),opts=S.lib.channels.filter(function(x){return x!==c}).map(function(x){return[x.id,x.name]});
+  if(!opts.length){dlgOpen({title:"Mover guion",msg:"Primero crea otro canal con \"+ Canal\".",ok:"Entendido"},function(){});return}
+  dlgOpen({title:"Mover \""+o.title+"\" a otro canal",options:opts,ok:"Mover"},function(v){
+    syncScript();var d=chById(v.sel);if(!d)return;
+    c.scripts.splice(c.scripts.indexOf(o),1);d.scripts.push(o);
+    if(!c.scripts.length)c.scripts.push(mkScript("Guion 1",""));
+    c.last=c.scripts[0].id;selectSc(d,o);
+  });
+});
+$("scDel").addEventListener("click",function(){
+  var c=curCh(),o=curSc();
+  dlgOpen({title:"Eliminar guion",msg:"Se eliminará \""+o.title+"\". No se puede deshacer.",ok:"Eliminar",danger:true},function(){
+    c.scripts.splice(c.scripts.indexOf(o),1);
+    if(!c.scripts.length)c.scripts.push(mkScript("Guion 1",""));
+    S.lib.cur.s="";ensureLib();save();renderLib();loadCur();
+  });
+});
+function curTitleFile(){var s=curSc();return(s?s.title:"guion").replace(/[\\\/:*?"<>|]+/g,"_").trim()||"guion"}
+function saveBlob(blob,name){
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},800);
+}
+$("bkExp").addEventListener("click",function(){
+  syncScript();save();
+  var d=new Date(),p=function(n){return(n<10?"0":"")+n};
+  var data={app:"teleprompter",v:1,channels:S.lib.channels};
+  saveBlob(new Blob([JSON.stringify(data,null,1)],{type:"application/json"}),"teleprompter_respaldo_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+".json");
+});
+$("bkImp").addEventListener("click",function(){$("bkFile").click()});
+$("bkFile").addEventListener("change",function(){
+  var f=this.files&&this.files[0];if(!f)return;this.value="";
+  var r=new FileReader();
+  r.onload=function(){
+    var j;try{j=JSON.parse(String(r.result))}catch(e){j=null}
+    if(!j||j.app!=="teleprompter"||!j.channels||!j.channels.length){dlgOpen({title:"Copia no válida",msg:"Ese archivo no es una copia de seguridad del teleprompter.",ok:"Entendido"},function(){});return}
+    syncScript();var nuevos=0,canales=0;
+    j.channels.forEach(function(ic){
+      var c=null;S.lib.channels.forEach(function(x){if(x.name.toLowerCase()===String(ic.name).toLowerCase())c=x});
+      if(!c){c={id:newId(),name:String(ic.name||"Canal"),last:"",scripts:[]};S.lib.channels.push(c);canales++}
+      (ic.scripts||[]).forEach(function(is){
+        var dup=c.scripts.some(function(x){return x.title===is.title&&x.text===is.text});
+        if(dup)return;
+        c.scripts.push({id:newId(),title:String(is.title||"Guion"),text:String(is.text||""),t:is.t||Date.now()});nuevos++;
+      });
+      if(!c.scripts.length)c.scripts.push(mkScript("Guion 1",""));
+    });
+    ensureLib();save();renderLib();loadCur();
+    dlgOpen({title:"Copia restaurada",msg:nuevos+" guion"+(nuevos===1?"":"es")+" añadido"+(nuevos===1?"":"s")+" y "+canales+" canal"+(canales===1?"":"es")+" nuevo"+(canales===1?"":"s")+". Lo que ya tenías se conserva.",ok:"Listo"},function(){});
+  };
+  r.readAsText(f,"UTF-8");
+});
+ensureLib();renderLib();loadCur();
+script.addEventListener("input",function(){var s=curSc();s.text=script.value;s.t=Date.now();S.script=script.value;save();updStats()});
 $("go").addEventListener("click",start);
 $("pp").addEventListener("click",toggle);
 $("back").addEventListener("click",function(){seek(-5)});
@@ -599,12 +762,16 @@ $("open").addEventListener("click",function(){$("file").click()});
 $("file").addEventListener("change",function(){
   var f=this.files&&this.files[0];if(!f)return;
   var r=new FileReader();
-  r.onload=function(){script.value=String(r.result).replace(/^﻿/,"");S.script=script.value;save();updStats()};
+  var fname=f.name.replace(/\.[^.]*$/,"")||"Guion";
+  r.onload=function(){
+    syncScript();var c=curCh(),sc=mkScript(fname,String(r.result).replace(/^﻿/,""));
+    c.scripts.push(sc);selectSc(c,sc);
+  };
   r.readAsText(f,"UTF-8");this.value="";
 });
 $("saveTxt").addEventListener("click",function(){
   var b=new Blob(["﻿"+script.value],{type:"text/plain;charset=utf-8"}),a=document.createElement("a");
-  a.href=URL.createObjectURL(b);a.download="guion.txt";document.body.appendChild(a);a.click();
+  a.href=URL.createObjectURL(b);a.download=curTitleFile()+".txt";document.body.appendChild(a);a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
 });
 function setFs(v){
@@ -830,7 +997,7 @@ document.addEventListener("keydown",function(e){
     }else if(k==="Escape")closeKeys();
     return;
   }
-  var typing=e.target===script||(e.target&&e.target.tagName==="INPUT"&&e.target.type!=="range");
+  var typing=e.target===script||(e.target&&(e.target.tagName==="SELECT"||(e.target.tagName==="INPUT"&&e.target.type!=="range")));
   if(typing||e.ctrlKey||e.altKey||e.metaKey)return;
   var nk=normKey(k);
   for(var i=0;i<ACT.length;i++){
