@@ -27,9 +27,18 @@ h1 span{color:var(--ac)}
 #script:focus{border-color:var(--ac)}
 .hint{color:var(--mt);font-size:15px;line-height:1.4}
 .hint b{color:var(--ac)}
-#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
-body.cam #cam{display:block}
-#cam.mir{transform:scaleX(-1)}
+#cam{position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
+#camc{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none;background:#000}
+body.cam #camc{display:block}
+#camc.mir{transform:scaleX(-1)}
+#grid{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none}
+body.cam.grid #grid{display:flex}
+#gbox{position:relative;aspect-ratio:16/9;width:min(100%,calc(100vh * 16 / 9));border:2px solid rgba(255,230,0,.8)}
+#gbox.v{aspect-ratio:9/16;width:min(100%,calc(100vh * 9 / 16))}
+@supports (width:1cqw){#grid{container-type:size}#gbox{width:min(100cqw,calc(100cqh * 16 / 9))}#gbox.v{width:min(100cqw,calc(100cqh * 9 / 16))}}
+#gbox b{position:absolute;background:rgba(255,255,255,.6)}
+#gbox b.v{top:0;bottom:0;width:1px}
+#gbox b.h{left:0;right:0;height:1px}
 body.cam #fade{background:rgba(0,0,0,.38)}
 body.cam #txt{text-shadow:0 2px 10px #000,0 0 3px #000}
 #hud .chip.rec{background:#ff2d2d;color:#fff}
@@ -115,6 +124,8 @@ body.hide #hud{opacity:.35}
     <div id="cam2">
       <div class="tg"><span>Grabarme con la cámara</span><button id="camT">NO</button></div>
       <div class="tg"><span>Cámara</span><button id="camF">FRONTAL</button></div>
+      <div class="tg"><span>Formato del video</span><button id="camO">HORIZONTAL 16:9</button></div>
+      <div class="tg"><span>Cuadrícula de tercios</span><button id="camG">SÍ</button></div>
       <div class="tg"><span>Vista previa en espejo</span><button id="camM">SÍ</button></div>
       <div id="camst" class="hint"></div>
     </div>
@@ -144,6 +155,8 @@ body.hide #hud{opacity:.35}
 </div>
 <div id="run">
   <video id="cam" playsinline muted autoplay></video>
+  <canvas id="camc"></canvas>
+  <div id="grid"><div id="gbox"><b class="v" style="left:33.333%"></b><b class="v" style="left:66.667%"></b><b class="h" style="top:33.333%"></b><b class="h" style="top:66.667%"></b></div></div>
   <div id="stage"><div id="txt"></div></div>
   <div id="fade"></div>
   <div id="guide"></div>
@@ -157,7 +170,9 @@ body.hide #hud{opacity:.35}
       <button id="fwd">+5s &#9654;&#9654;</button>
       <button id="rst">Reiniciar</button>
       <span class="sp"></span>
-      <button id="recB" style="display:none;background:#ff2d2d;border-color:#ff2d2d">&#9632; Detener grabación</button>
+      <button id="rotB" style="display:none">&#8635; Girar cámara</button>
+      <button id="gridB" style="display:none">&#9638; Cuadrícula</button>
+      <button id="recB"style="display:none;background:#ff2d2d;border-color:#ff2d2d">&#9632; Detener grabación</button>
       <button id="exit">Editar guion</button>
     </div>
   </div>
@@ -166,9 +181,9 @@ body.hide #hud{opacity:.35}
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"]};
+var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"]};
 function cloneKeys(k){var o={};for(var a in k)o[a]=[k[a][0]||"",k[a][1]||""];return o}
-var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true},S=Object.assign({},D);
+var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true},S=Object.assign({},D);
 try{var j=JSON.parse(localStorage.getItem(KEY)||"null");if(j)S=Object.assign({},D,j)}catch(e){}
 (function(){var d=cloneKeys(DEFKEYS),u=S.keys||{};for(var a in d)if(u[a]&&u[a].length)d[a]=[u[a][0]||"",u[a][1]||""];S.keys=d})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -323,6 +338,7 @@ function pause(){
 }
 function toggle(){
   if(counting){cancelCount();return}
+  if(!playing&&stream&&!rec&&!recUsed){countdown();return}
   playing?pause():play();
 }
 function showBar(v){document.body.classList.toggle("hide",!v)}
@@ -363,7 +379,7 @@ function start(){
   lockWake();
   $("pp").textContent="PLAY";
   recUsed=false;
-  if(S.cam)camOpen(function(){countdown()});else countdown();
+  if(S.cam)camOpen(function(){$("pp").innerHTML="&#9679; GRABAR Y EMPEZAR";showBar(true)});else countdown();
 }
 function stop(){
   pause();cancelCount();running=false;
@@ -575,7 +591,26 @@ function camUi(){
   $("camT").textContent=S.cam?"SÍ":"NO";$("camT").classList.toggle("on",S.cam);
   $("camF").textContent=S.camBack?"TRASERA":"FRONTAL";
   $("camM").textContent=S.camMir?"SÍ":"NO";$("camM").classList.toggle("on",S.camMir);
-  $("camst").textContent=S.cam?"Al pulsar INICIAR se abrirá la cámara y empezará a grabar cuando termine la cuenta atrás. El video no incluye el texto.":"";
+  $("camO").textContent=S.camFmt==="v"?"VERTICAL 9:16":"HORIZONTAL 16:9";
+  $("camG").textContent=S.camGrid?"SÍ":"NO";$("camG").classList.toggle("on",S.camGrid);
+  document.body.classList.toggle("grid",!!S.camGrid);$("gbox").classList.toggle("v",S.camFmt==="v");
+  $("rotB").innerHTML="&#8635; Girar cámara ("+S.camRot*90+"°)";
+  $("camst").textContent=S.cam?"Al pulsar INICIAR se abre la cámara para que te encuadres. Con \"Girar cámara\" ajustas la orientación (el marco muestra lo que se graba). La grabación empieza al pulsar el botón verde. El video no incluye el texto.":"";
+}
+$("camO").addEventListener("click",function(){S.camFmt=S.camFmt==="v"?"h":"v";save();camUi()});
+function rotCam(){S.camRot=(S.camRot+1)%4;save();camUi()}
+$("rotB").addEventListener("click",rotCam);
+function gridCam(){S.camGrid=!S.camGrid;save();camUi()}
+$("camG").addEventListener("click",gridCam);$("gridB").addEventListener("click",gridCam);
+var camc=$("camc"),cctx=camc.getContext("2d"),drawRaf=0;
+function drawLoop(){
+  var vw=cam.videoWidth,vh=cam.videoHeight;if(!vw||!vh)return;
+  var W=S.camFmt==="v"?1080:1920,H=S.camFmt==="v"?1920:1080;
+  if(camc.width!==W||camc.height!==H){camc.width=W;camc.height=H}
+  var r=S.camRot%4,ew=r%2?vh:vw,eh=r%2?vw:vh,s=Math.max(W/ew,H/eh);
+  cctx.setTransform(1,0,0,1,0,0);cctx.fillStyle="#000";cctx.fillRect(0,0,W,H);
+  cctx.translate(W/2,H/2);cctx.rotate(r*Math.PI/2);cctx.scale(s,s);
+  cctx.drawImage(cam,-vw/2,-vh/2);
 }
 $("camT").addEventListener("click",function(){S.cam=!S.cam;save();camUi()});
 $("camF").addEventListener("click",function(){S.camBack=!S.camBack;save();camUi()});
@@ -588,33 +623,45 @@ function camOpen(cb){
   }).then(function(s){
     if(!running){s.getTracks().forEach(function(x){x.stop()});return}
     stream=s;cam.srcObject=s;
-    cam.classList.toggle("mir",S.camMir&&!S.camBack);
+    camc.classList.toggle("mir",S.camMir&&!S.camBack);
     var p=cam.play();if(p&&p.catch)p.catch(function(){});
     document.body.classList.add("cam");
+    clearInterval(drawRaf);drawRaf=setInterval(drawLoop,33);drawLoop();
+    $("rotB").style.display="";$("gridB").style.display="";
     cb();
   }).catch(function(e){camFail("No pude abrir la cámara o el micrófono: "+(e&&e.name?e.name:e))});
 }
 function camFail(m){stop();$("camst").textContent=m}
 function camClose(){
   if(stream){stream.getTracks().forEach(function(x){x.stop()});stream=null}
+  clearInterval(drawRaf);$("rotB").style.display="none";$("gridB").style.display="none";
   cam.srcObject=null;document.body.classList.remove("cam");
 }
 function recChip(){
   if(!rec)return"";
   return'<span class="chip rec">● REC '+fmt((performance.now()-recT0)/1000)+'</span>';
 }
-function recStart(){
+var RECCANDS=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+function recStart(from,retry){
   if(!window.MediaRecorder){return}
-  var c=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm"];
-  recMime="";for(var i=0;i<c.length;i++){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c[i])){recMime=c[i];break}}
+  var c=RECCANDS,idx=from||0;
+  recMime="";for(var i=idx;i<c.length;i++){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c[i])){recMime=c[i];idx=i;break}}
   chunks=[];
-  try{rec=new MediaRecorder(stream,recMime?{mimeType:recMime,videoBitsPerSecond:8000000}:{})}catch(e){try{rec=new MediaRecorder(stream)}catch(x){rec=null;return}}
+  var src=stream;
+  try{if(camc.captureStream){var cs=camc.captureStream(30);src=new MediaStream(cs.getVideoTracks().concat(stream.getAudioTracks()))}}catch(e){src=stream}
+  try{rec=new MediaRecorder(src,recMime?{mimeType:recMime,videoBitsPerSecond:8000000}:{})}catch(e){try{rec=new MediaRecorder(src)}catch(x){rec=null;return}}
   var me=rec;
   me.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
   me.onstop=function(){showDone(me.mimeType||recMime)};
   try{var vt=stream.getVideoTracks()[0],st=vt.getSettings(),au=stream.getAudioTracks()[0];
-    recInfo=(st.width||"?")+"x"+(st.height||"?")+" a "+Math.round(st.frameRate||0)+" fps"+(au?" · audio "+Math.round((au.getSettings().sampleRate||0)/1000)+" kHz":"")+" · cámara: "+(vt.label||"sin nombre")}catch(e){recInfo=""}
-  recT0=performance.now();me.start(1000);
+    recInfo="salida "+camc.width+"x"+camc.height+" (cámara original "+(st.width||"?")+"x"+(st.height||"?")+") a "+Math.round(st.frameRate||0)+" fps"+(au?" · audio "+Math.round((au.getSettings().sampleRate||0)/1000)+" kHz":"")+" · cámara: "+(vt.label||"sin nombre")}catch(e){recInfo=""}
+  me.onerror=function(){
+    if(rec!==me||chunks.length||idx+1>=RECCANDS.length)return;
+    me.onstop=null;me.onerror=null;try{me.stop()}catch(e){}
+    rec=null;recStart(idx+1,true);
+  };
+  if(!retry)recT0=performance.now();
+  me.start(1000);
   $("recB").style.display="";
 }
 function recStop(){
@@ -661,6 +708,8 @@ var ACT=[
   {id:"home",n:"Ir al inicio",run:1,fn:function(){t=0;setPtr(0)}},
   {id:"exit",n:"Salir / Editar guion",run:1,fn:stop},
   {id:"rec",n:"Detener grabación",run:1,fn:recStop},
+  {id:"rot",n:"Girar cámara 90°",run:1,fn:function(){if(stream)rotCam()}},
+  {id:"grid",n:"Cuadrícula de tercios",run:1,fn:function(){if(stream)gridCam()}},
   {id:"wpmUp",n:"Velocidad más rápida",fn:function(){setWpm(S.wpm+5)}},
   {id:"wpmDn",n:"Velocidad más lenta",fn:function(){setWpm(S.wpm-5)}},
   {id:"fsUp",n:"Letra más grande",fn:function(){setFs(S.fs+4)}},
