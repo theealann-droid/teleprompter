@@ -49,6 +49,8 @@ body.cam .zm{display:flex}
 body.cam #fade{background:rgba(0,0,0,.38)}
 body.cam #txt{text-shadow:0 2px 10px #000,0 0 3px #000}
 #hud .chip.rec{background:#ff2d2d;color:#fff}
+#backBtn{position:absolute;z-index:5;top:max(12px,env(safe-area-inset-top));left:max(14px,env(safe-area-inset-left));min-height:48px;padding:0 18px;font-size:18px;background:rgba(20,20,20,.72);border:2px solid rgba(255,255,255,.35);border-radius:24px;transition:opacity .25s}
+body.hide #backBtn{opacity:.45}
 #lib{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:10px 12px;display:grid;gap:8px}
 .lr{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .lr>span{width:58px;color:var(--mt);font-size:16px}
@@ -196,6 +198,7 @@ body.hide #hud{opacity:.35}
   <div id="stage"><div id="txt"></div></div>
   <div id="fade"></div>
   <div id="guide"></div>
+  <button id="backBtn" aria-label="Volver a los ajustes">&#8592; Volver</button>
   <div id="hud"></div>
   <div id="count"></div>
   <div id="bar">
@@ -411,6 +414,7 @@ function start(){
   syncScript();save();
   if(!/\S/.test(S.script)){script.focus();return}
   running=true;document.body.classList.add("running");
+  try{if(!(history.state&&history.state.tp))history.pushState({tp:1},"")}catch(e){}
   $("panelSlot").appendChild(panel);
   build();t=0;yCur=0;
   try{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(function(){})}catch(e){}
@@ -427,7 +431,16 @@ function stop(){
   unlockWake();
   try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen()}catch(e){}
   updStats();
+  try{if(history.state&&history.state.tp)history.back()}catch(e){}
 }
+function volver(){
+  if(typeof rec!=="undefined"&&rec){
+    dlgOpen({title:"¿Volver a los ajustes?",msg:"Se detendrá la grabación. Podrás guardar el video que llevas.",ok:"Detener y volver"},function(){stop()});
+    return;
+  }
+  stop();
+}
+window.addEventListener("popstate",function(){if(running){if(typeof rec!=="undefined"&&rec){try{history.pushState({tp:1},"")}catch(e){}volver()}else stop()}});
 function updStats(){
   var b=parse(script.value),w=0,d=0;
   b.forEach(function(x){w+=x.w;d+=x.dur});
@@ -606,6 +619,8 @@ $("back").addEventListener("click",function(){seek(-5)});
 $("fwd").addEventListener("click",function(){seek(5)});
 $("rst").addEventListener("click",function(){pause();t=0;setPtr(0);yCur=ptrTarget(0);render()});
 $("exit").addEventListener("click",stop);
+$("backBtn").addEventListener("click",volver);
+$("backBtn").addEventListener("pointerup",function(e){e.stopPropagation()});
 $("bar").addEventListener("pointerup",function(e){e.stopPropagation()});
 /* ---- Navegacion manual: rueda y arrastre ---- */
 function curY(){return follow()?yCur:posAt(t).y}
