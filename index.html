@@ -33,9 +33,16 @@ body.cam #camc{display:block}
 #camc.mir{transform:scaleX(-1)}
 #grid{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none}
 body.cam.grid #grid{display:flex}
-#gbox{position:relative;aspect-ratio:16/9;width:min(100%,calc(100vh * 16 / 9));border:2px solid rgba(255,230,0,.8)}
-#gbox.v{aspect-ratio:9/16;width:min(100%,calc(100vh * 9 / 16))}
-@supports (width:1cqw){#grid{container-type:size}#gbox{width:min(100cqw,calc(100cqh * 16 / 9))}#gbox.v{width:min(100cqw,calc(100cqh * 9 / 16))}}
+#gbox{position:relative;--r:1.7778;aspect-ratio:var(--r);width:min(100%,calc(100vh * var(--r)));border:2px solid rgba(255,230,0,.8)}
+@supports (width:1cqw){#grid{container-type:size}#gbox{width:min(100cqw,calc(100cqh * var(--r)))}}
+.sgr{display:grid;gap:6px;font-size:18px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{min-height:44px;font-size:16px;padding:0 12px}
+.seg button.on{background:var(--ac);color:#000;border-color:var(--ac)}
+.zm{display:none;align-items:center;gap:8px;font-size:18px}
+body.cam .zm{display:flex}
+.zm input{width:160px;height:36px;accent-color:var(--ac)}
+.zm output{min-width:48px;text-align:right;color:var(--ac);font-weight:700;font-variant-numeric:tabular-nums}
 #gbox b{position:absolute;background:rgba(255,255,255,.6)}
 #gbox b.v{top:0;bottom:0;width:1px}
 #gbox b.h{left:0;right:0;height:1px}
@@ -123,8 +130,10 @@ body.hide #hud{opacity:.35}
     </div>
     <div id="cam2">
       <div class="tg"><span>Grabarme con la cámara</span><button id="camT">NO</button></div>
-      <div class="tg"><span>Cámara</span><button id="camF">FRONTAL</button></div>
-      <div class="tg"><span>Formato del video</span><button id="camO">HORIZONTAL 16:9</button></div>
+      <div class="sgr"><span>Cámara</span><div class="seg" data-k="camBack"><button data-v="0">Frontal</button><button data-v="1">Trasera</button></div></div>
+      <div class="sgr"><span>Formato del video</span><div class="seg" data-k="camFmt"><button data-v="h">Horizontal 16:9</button><button data-v="v">Vertical 9:16</button><button data-v="s">Cuadrado 1:1</button></div></div>
+      <div class="sgr"><span>Encuadre</span><div class="seg" data-k="camFit"><button data-v="fill">Llenar (recorta)</button><button data-v="fit">Entero (fondo difuminado)</button></div></div>
+      <div class="sgr"><span>Calidad</span><div class="seg" data-k="camQ"><button data-v="720">720p</button><button data-v="1080">1080p</button></div></div>
       <div class="tg"><span>Cuadrícula de tercios</span><button id="camG">SÍ</button></div>
       <div class="tg"><span>Vista previa en espejo</span><button id="camM">SÍ</button></div>
       <div id="camst" class="hint"></div>
@@ -172,6 +181,8 @@ body.hide #hud{opacity:.35}
       <span class="sp"></span>
       <button id="rotB" style="display:none">&#8635; Girar cámara</button>
       <button id="gridB" style="display:none">&#9638; Cuadrícula</button>
+      <button id="swB" style="display:none">&#8644; Cambiar cámara</button>
+      <label class="zm">Zoom <input type="range" id="zm" min="1" max="4" step="0.05" value="1"><output id="zmO">1.0×</output></label>
       <button id="recB"style="display:none;background:#ff2d2d;border-color:#ff2d2d">&#9632; Detener grabación</button>
       <button id="exit">Editar guion</button>
     </div>
@@ -181,9 +192,9 @@ body.hide #hud{opacity:.35}
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"]};
+var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"],zoomIn:["z"],zoomOut:["x"],swap:["c"]};
 function cloneKeys(k){var o={};for(var a in k)o[a]=[k[a][0]||"",k[a][1]||""];return o}
-var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true},S=Object.assign({},D);
+var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1},S=Object.assign({},D);
 try{var j=JSON.parse(localStorage.getItem(KEY)||"null");if(j)S=Object.assign({},D,j)}catch(e){}
 (function(){var d=cloneKeys(DEFKEYS),u=S.keys||{};for(var a in d)if(u[a]&&u[a].length)d[a]=[u[a][0]||"",u[a][1]||""];S.keys=d})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -504,6 +515,20 @@ function pdEnd(e,cancel){
   if(follow()&&el&&el.classList&&el.classList.contains("w")){setPtr(parseInt(el.getAttribute("data-g"),10));siguiendo=false;return}
   toggle();
 }
+/* Pellizcar para hacer zoom de cámara */
+var pz=null;
+function tdist(t){var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy)}
+stage.addEventListener("touchstart",function(e){
+  if(!running||!stream||e.touches.length!==2)return;
+  pz={d:tdist(e.touches),z:+S.camZoom||1};
+  if(pd){if(pd.moved){dragging=false;document.body.classList.remove("drag");manual=false}pd=null}
+  e.preventDefault();
+},{passive:false});
+stage.addEventListener("touchmove",function(e){
+  if(!pz||e.touches.length!==2)return;
+  e.preventDefault();setZoom(pz.z*tdist(e.touches)/pz.d);
+},{passive:false});
+stage.addEventListener("touchend",function(e){if(e.touches.length<2)pz=null});
 stage.addEventListener("pointerup",function(e){pdEnd(e,false)});
 stage.addEventListener("pointercancel",function(e){pdEnd(e,true)});
 /* ---- Micrófono: seguir mi voz (WebSocket local al motor stt_server.py) ---- */
@@ -589,36 +614,72 @@ function setFs(v){
 var recInfo="",cam=$("cam"),stream=null,rec=null,recUsed=false,chunks=[],recMime="",recT0=0,doneBlob=null,doneUrl="",doneName="";
 function camUi(){
   $("camT").textContent=S.cam?"SÍ":"NO";$("camT").classList.toggle("on",S.cam);
-  $("camF").textContent=S.camBack?"TRASERA":"FRONTAL";
   $("camM").textContent=S.camMir?"SÍ":"NO";$("camM").classList.toggle("on",S.camMir);
-  $("camO").textContent=S.camFmt==="v"?"VERTICAL 9:16":"HORIZONTAL 16:9";
   $("camG").textContent=S.camGrid?"SÍ":"NO";$("camG").classList.toggle("on",S.camGrid);
-  document.body.classList.toggle("grid",!!S.camGrid);$("gbox").classList.toggle("v",S.camFmt==="v");
+  var sg=document.querySelectorAll("#cam2 .seg");
+  for(var i=0;i<sg.length;i++){
+    var k=sg[i].getAttribute("data-k"),cur=k==="camBack"?(S.camBack?"1":"0"):String(S[k]),bs=sg[i].children;
+    for(var j=0;j<bs.length;j++)bs[j].classList.toggle("on",bs[j].getAttribute("data-v")===cur);
+  }
+  document.body.classList.toggle("grid",!!S.camGrid);
+  var d=outDims();$("gbox").style.setProperty("--r",(d[0]/d[1]).toFixed(4));
   $("rotB").innerHTML="&#8635; Girar cámara ("+S.camRot*90+"°)";
-  $("camst").textContent=S.cam?"Al pulsar INICIAR se abre la cámara para que te encuadres. Con \"Girar cámara\" ajustas la orientación (el marco muestra lo que se graba). La grabación empieza al pulsar el botón verde. El video no incluye el texto.":"";
+  $("zm").value=S.camZoom;$("zmO").textContent=(+S.camZoom).toFixed(1)+"×";
+  $("camst").textContent=S.cam?"Al pulsar INICIAR se abre la cámara para que te encuadres: puedes girarla, hacer zoom y cambiar de cámara. El marco muestra lo que se graba. La grabación empieza con el botón verde. El video no incluye el texto.":"";
 }
-$("camO").addEventListener("click",function(){S.camFmt=S.camFmt==="v"?"h":"v";save();camUi()});
+function outDims(){
+  var q=parseInt(S.camQ,10)||1080,l=Math.round(q*16/9/2)*2;
+  return S.camFmt==="v"?[q,l]:S.camFmt==="s"?[q,q]:[l,q];
+}
+(function(){
+  var sg=document.querySelectorAll("#cam2 .seg");
+  for(var i=0;i<sg.length;i++)sg[i].addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest("button[data-v]");if(!b)return;
+    var k=this.getAttribute("data-k"),v=b.getAttribute("data-v");
+    if(k==="camBack")S.camBack=v==="1";else S[k]=v;
+    save();camUi();
+  });
+})();
 function rotCam(){S.camRot=(S.camRot+1)%4;save();camUi()}
 $("rotB").addEventListener("click",rotCam);
 function gridCam(){S.camGrid=!S.camGrid;save();camUi()}
 $("camG").addEventListener("click",gridCam);$("gridB").addEventListener("click",gridCam);
-var camc=$("camc"),cctx=camc.getContext("2d"),drawRaf=0;
+function setZoom(z){S.camZoom=Math.min(4,Math.max(1,Math.round(z*100)/100));save();camUi()}
+$("zm").addEventListener("input",function(){setZoom(parseFloat(this.value))});
+var camc=$("camc"),cctx=camc.getContext("2d"),drawRaf=0,bgc=document.createElement("canvas"),bctx=bgc.getContext("2d");
+function put(c,vw,vh,r,s,W,H){
+  c.save();c.translate(W/2,H/2);c.rotate(r*Math.PI/2);c.scale(s,s);c.drawImage(cam,-vw/2,-vh/2);c.restore();
+}
 function drawLoop(){
   var vw=cam.videoWidth,vh=cam.videoHeight;if(!vw||!vh)return;
-  var W=S.camFmt==="v"?1080:1920,H=S.camFmt==="v"?1920:1080;
+  var d=outDims(),W=d[0],H=d[1];
   if(camc.width!==W||camc.height!==H){camc.width=W;camc.height=H}
-  var r=S.camRot%4,ew=r%2?vh:vw,eh=r%2?vw:vh,s=Math.max(W/ew,H/eh);
+  var r=S.camRot%4,ew=r%2?vh:vw,eh=r%2?vw:vh,z=+S.camZoom||1;
   cctx.setTransform(1,0,0,1,0,0);cctx.fillStyle="#000";cctx.fillRect(0,0,W,H);
-  cctx.translate(W/2,H/2);cctx.rotate(r*Math.PI/2);cctx.scale(s,s);
-  cctx.drawImage(cam,-vw/2,-vh/2);
+  if(S.camFit==="fit"){
+    var bw=Math.max(16,Math.round(W/24)),bh=Math.max(16,Math.round(H/24));
+    if(bgc.width!==bw||bgc.height!==bh){bgc.width=bw;bgc.height=bh}
+    bctx.setTransform(1,0,0,1,0,0);bctx.clearRect(0,0,bw,bh);
+    put(bctx,vw,vh,r,Math.max(bw/ew,bh/eh),bw,bh);
+    cctx.imageSmoothingEnabled=true;try{cctx.imageSmoothingQuality="high"}catch(e){}
+    cctx.drawImage(bgc,0,0,W,H);
+    cctx.fillStyle="rgba(0,0,0,.4)";cctx.fillRect(0,0,W,H);
+    put(cctx,vw,vh,r,Math.min(W/ew,H/eh)*z,W,H);
+  }else put(cctx,vw,vh,r,Math.max(W/ew,H/eh)*z,W,H);
 }
 $("camT").addEventListener("click",function(){S.cam=!S.cam;save();camUi()});
-$("camF").addEventListener("click",function(){S.camBack=!S.camBack;save();camUi()});
 $("camM").addEventListener("click",function(){S.camMir=!S.camMir;save();camUi()});
+function camSwitch(){
+  if(!stream||rec)return;
+  S.camBack=!S.camBack;save();camUi();
+  var old=stream;stream=null;old.getTracks().forEach(function(x){x.stop()});
+  camOpen(function(){});
+}
+$("swB").addEventListener("click",camSwitch);
 function camOpen(cb){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail("Este navegador no permite usar la cámara (necesita HTTPS o localhost).");return}
   navigator.mediaDevices.getUserMedia({
-    video:{facingMode:{ideal:S.camBack?"environment":"user"},width:{ideal:1920},height:{ideal:1080}},
+    video:{facingMode:{ideal:S.camBack?"environment":"user"},width:{ideal:outDims()[0]},height:{ideal:outDims()[1]}},
     audio:{echoCancellation:true,noiseSuppression:true}
   }).then(function(s){
     if(!running){s.getTracks().forEach(function(x){x.stop()});return}
@@ -627,14 +688,14 @@ function camOpen(cb){
     var p=cam.play();if(p&&p.catch)p.catch(function(){});
     document.body.classList.add("cam");
     clearInterval(drawRaf);drawRaf=setInterval(drawLoop,33);drawLoop();
-    $("rotB").style.display="";$("gridB").style.display="";
+    $("rotB").style.display="";$("gridB").style.display="";$("swB").style.display="";
     cb();
   }).catch(function(e){camFail("No pude abrir la cámara o el micrófono: "+(e&&e.name?e.name:e))});
 }
 function camFail(m){stop();$("camst").textContent=m}
 function camClose(){
   if(stream){stream.getTracks().forEach(function(x){x.stop()});stream=null}
-  clearInterval(drawRaf);$("rotB").style.display="none";$("gridB").style.display="none";
+  clearInterval(drawRaf);$("rotB").style.display="none";$("gridB").style.display="none";$("swB").style.display="none";
   cam.srcObject=null;document.body.classList.remove("cam");
 }
 function recChip(){
@@ -649,7 +710,7 @@ function recStart(from,retry){
   chunks=[];
   var src=stream;
   try{if(camc.captureStream){var cs=camc.captureStream(30);src=new MediaStream(cs.getVideoTracks().concat(stream.getAudioTracks()))}}catch(e){src=stream}
-  try{rec=new MediaRecorder(src,recMime?{mimeType:recMime,videoBitsPerSecond:8000000}:{})}catch(e){try{rec=new MediaRecorder(src)}catch(x){rec=null;return}}
+  try{rec=new MediaRecorder(src,recMime?{mimeType:recMime,videoBitsPerSecond:(parseInt(S.camQ,10)<1000?5000000:8000000)}:{})}catch(e){try{rec=new MediaRecorder(src)}catch(x){rec=null;return}}
   var me=rec;
   me.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
   me.onstop=function(){showDone(me.mimeType||recMime)};
@@ -710,6 +771,9 @@ var ACT=[
   {id:"rec",n:"Detener grabación",run:1,fn:recStop},
   {id:"rot",n:"Girar cámara 90°",run:1,fn:function(){if(stream)rotCam()}},
   {id:"grid",n:"Cuadrícula de tercios",run:1,fn:function(){if(stream)gridCam()}},
+  {id:"zoomIn",n:"Zoom de cámara +",run:1,fn:function(){if(stream)setZoom(S.camZoom+0.1)}},
+  {id:"zoomOut",n:"Zoom de cámara −",run:1,fn:function(){if(stream)setZoom(S.camZoom-0.1)}},
+  {id:"swap",n:"Cambiar cámara (frontal/trasera)",run:1,fn:camSwitch},
   {id:"wpmUp",n:"Velocidad más rápida",fn:function(){setWpm(S.wpm+5)}},
   {id:"wpmDn",n:"Velocidad más lenta",fn:function(){setWpm(S.wpm-5)}},
   {id:"fsUp",n:"Letra más grande",fn:function(){setFs(S.fs+4)}},
