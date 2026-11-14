@@ -570,7 +570,7 @@ function setFs(v){
   S.fs=Math.min(140,Math.max(28,v));$("fs").value=S.fs;$("fsO").textContent=S.fs+" px";save();relayout();
 }
 /* ---- Cámara y grabación ---- */
-var cam=$("cam"),stream=null,rec=null,recUsed=false,chunks=[],recMime="",recT0=0,doneBlob=null,doneUrl="",doneName="";
+var recInfo="",cam=$("cam"),stream=null,rec=null,recUsed=false,chunks=[],recMime="",recT0=0,doneBlob=null,doneUrl="",doneName="";
 function camUi(){
   $("camT").textContent=S.cam?"SÍ":"NO";$("camT").classList.toggle("on",S.cam);
   $("camF").textContent=S.camBack?"TRASERA":"FRONTAL";
@@ -612,6 +612,8 @@ function recStart(){
   var me=rec;
   me.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
   me.onstop=function(){showDone(me.mimeType||recMime)};
+  try{var vt=stream.getVideoTracks()[0],st=vt.getSettings(),au=stream.getAudioTracks()[0];
+    recInfo=(st.width||"?")+"x"+(st.height||"?")+" a "+Math.round(st.frameRate||0)+" fps"+(au?" · audio "+Math.round((au.getSettings().sampleRate||0)/1000)+" kHz":"")+" · cámara: "+(vt.label||"sin nombre")}catch(e){recInfo=""}
   recT0=performance.now();me.start(1000);
   $("recB").style.display="";
 }
@@ -630,7 +632,8 @@ function showDone(mt){
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);
   $("doneV").src=doneUrl;
-  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB. Si cierras esto sin guardar, se pierde.";
+  var seg=Math.max(1,(performance.now()-recT0)/1000);
+  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Si cierras esto sin guardar, se pierde.";
   $("done").classList.add("open");
 }
 function closeDone(){
