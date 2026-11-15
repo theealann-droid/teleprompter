@@ -140,7 +140,7 @@ body.hide #hud{opacity:.35}
     <h1>TELE<span>PROMPTER</span></h1>
     <div id="lib">
       <div class="lr"><span>Canal</span><select id="chSel"></select><button id="chNew">+ Canal</button><button id="chRen">Renombrar</button><button id="chDel">Eliminar</button></div>
-      <div class="lr"><span>Guion</span><select id="scSel"></select><button id="scNew">+ Guion</button><button id="scRen">Renombrar</button><button id="scDup">Duplicar</button><button id="scMov">Mover</button><button id="scDel">Eliminar</button></div>
+      <div class="lr"><span>Guion</span><select id="scSel"></select><button id="scNew">+ Guion</button><button id="scPaste">Pegar guion</button><button id="scRen">Renombrar</button><button id="scDup">Duplicar</button><button id="scMov">Mover</button><button id="scDel">Eliminar</button></div>
     </div>
     <div class="lr"><button id="mgOpen" style="flex:1">Lista de guiones (abrir, ordenar, importar, eliminar)</button></div>
     <textarea id="script" spellcheck="false" placeholder="Pega aquí tu guion..."></textarea>
@@ -707,17 +707,29 @@ $("bkFile").addEventListener("change",function(){
 });
 ensureLib();renderLib();loadCur();
 /* ---- Abrir guion desde enlace: #guion=<texto>&titulo=<nombre> ---- */
-function importarDesdeEnlace(){
-  var h=location.hash.replace(/^#/,"");if(h.indexOf("guion=")<0)return;
+function importarDesdeEnlace(){importarHash(location.hash)}
+function importarHash(h0){
+  var h=String(h0||"");var k=h.indexOf("#");if(k>=0)h=h.slice(k+1);if(h.indexOf("guion=")<0)return false;
   var q={};h.split("&").forEach(function(kv){var i=kv.indexOf("=");if(i>0){try{q[kv.slice(0,i)]=decodeURIComponent(kv.slice(i+1).replace(/\+/g," "))}catch(e){}}});
   var txt=q.guion||"";if(!/\S/.test(txt))return;
   var tit=(q.titulo||"Guion recibido").slice(0,80),c=curCh(),s=null;
   for(var i=0;i<c.scripts.length;i++)if(c.scripts[i].title===tit&&c.scripts[i].text===txt){s=c.scripts[i];break}
   if(!s){syncScript();s=mkScript(tit,txt);c.scripts.push(s)}
   selectSc(c,s);
+  if(location.hash.indexOf("guion=")<0)return true;
   try{history.replaceState(null,"",location.pathname+location.search)}catch(e){location.hash=""}
 }
 importarDesdeEnlace();window.addEventListener("hashchange",importarDesdeEnlace);
+function pegarTexto(t){
+  t=String(t||"");if(!/\S/.test(t))return;
+  if(t.indexOf("guion=")>=0&&importarHash(t))return;
+  var c=curCh();syncScript();var s=mkScript("Guion pegado",t.trim());c.scripts.push(s);selectSc(c,s);
+}
+$("scPaste").addEventListener("click",function(){
+  if(navigator.clipboard&&navigator.clipboard.readText){
+    navigator.clipboard.readText().then(pegarTexto,function(){pegarTexto(prompt("Pega aquí el enlace o el guion:")||"")});
+  }else{pegarTexto(prompt("Pega aquí el enlace o el guion:")||"")}
+});
 script.addEventListener("input",function(){var s=curSc();s.text=script.value;s.t=Date.now();S.script=script.value;save();updStats()});
 $("go").addEventListener("click",start);
 $("pp").addEventListener("click",toggle);
