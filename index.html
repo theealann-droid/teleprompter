@@ -1176,7 +1176,7 @@ function recStart(from,retry){
   try{rec=new MediaRecorder(src,recMime?{mimeType:recMime,videoBitsPerSecond:(parseInt(S.camQ,10)<1000?5000000:8000000)}:{})}catch(e){try{rec=new MediaRecorder(src)}catch(x){rec=null;return}}
   var me=rec;
   me.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
-  me.onstop=function(){showDone(me.mimeType||recMime)};
+  me.onstop=function(){micOff();showDone(me.mimeType||recMime)};
   try{var vt=stream.getVideoTracks()[0],st=vt.getSettings(),au=stream.getAudioTracks()[0];
     recInfo="salida "+camc.width+"x"+camc.height+" (cámara original "+(st.width||"?")+"x"+(st.height||"?")+") a "+Math.round(st.frameRate||0)+" fps"+(au?" · audio "+Math.round((au.getSettings().sampleRate||0)/1000)+" kHz":"")+" · cámara: "+(vt.label||"sin nombre")}catch(e){recInfo=""}
   me.onerror=function(){
@@ -1192,6 +1192,17 @@ function recStop(){
   if(!rec)return;
   var r=rec;rec=null;recUsed=true;$("recB").style.display="none";
   try{if(r.state!=="inactive")r.stop()}catch(e){}
+  if(audMode)micOff();
+}
+/* Apaga el micrófono por completo (en iPad, mientras esté abierto el volumen baja y no se oye el audio) */
+function micOff(){
+  try{if(stream)stream.getAudioTracks().forEach(function(t){t.stop()})}catch(e){}
+  if(audMode){
+    try{if(audCtx)audCtx.close()}catch(e){}
+    audCtx=null;audNode=null;audSrc=null;audZ=null;
+    if(stream){try{stream.getTracks().forEach(function(t){t.stop()})}catch(e){}stream=null}
+    audMode=false;
+  }
 }
 $("recB").addEventListener("click",recStop);
 function showDone(mt){
@@ -1522,6 +1533,7 @@ function aeNoise(){
 }
 function aeOpen(){
   if(!nrPcm)return;
+  micOff();
   AE.f=pcmToFloat(nrPcm);AE.sr=nrRate;AE.und=[];AE.red=[];AE.sel=null;AE.regs=[];AE.cur=0;AE.vs=0;AE.busy=false;
   $("aeFmt").value=nrExt;$("aed").classList.add("open");
   aePeaks();
