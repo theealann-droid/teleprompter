@@ -67,7 +67,19 @@ select{flex:1;min-width:150px;min-height:48px;background:#222;color:#fff;border:
 #done .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px;overflow:auto}
 #done video{width:100%;max-height:50vh;background:#000;border-radius:12px}
 #done .ft{display:flex;gap:10px;flex-wrap:wrap}
-#panel,#cam2{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:16px;display:grid;gap:12px}
+#mgr{position:fixed;inset:0;z-index:65;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
+#mgr.open{display:flex}
+#mgr .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
+#mgr .ft{display:flex;gap:10px;justify-content:flex-end}
+#mgr select{min-height:48px;font-size:18px;max-width:100%}
+.mgl{overflow:auto;display:grid;gap:6px;min-height:80px}
+.mgr{display:flex;align-items:center;gap:8px;background:#222;border:2px solid var(--ln);border-radius:12px;padding:4px 8px}
+.mgr.cur{border-color:var(--ac)}
+.mgr input[type=checkbox]{width:28px;height:28px;flex:none}
+.mgr .t{flex:1;min-height:44px;display:flex;align-items:center;font-size:18px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mgr .sm{color:var(--mt);font-size:14px;flex:none}
+.mgr button{min-height:44px;min-width:44px;padding:0 8px;font-size:18px}
+#panel,#cam2,#aud2{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:16px;display:grid;gap:12px}
 .row{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:12px;font-size:18px}
 .row output{text-align:right;color:var(--ac);font-weight:700;font-variant-numeric:tabular-nums}
 input[type=range]{width:100%;height:36px;accent-color:var(--ac)}
@@ -130,6 +142,7 @@ body.hide #hud{opacity:.35}
       <div class="lr"><span>Canal</span><select id="chSel"></select><button id="chNew">+ Canal</button><button id="chRen">Renombrar</button><button id="chDel">Eliminar</button></div>
       <div class="lr"><span>Guion</span><select id="scSel"></select><button id="scNew">+ Guion</button><button id="scRen">Renombrar</button><button id="scDup">Duplicar</button><button id="scMov">Mover</button><button id="scDel">Eliminar</button></div>
     </div>
+    <div class="lr"><button id="mgOpen" style="flex:1">Lista de guiones (abrir, ordenar, importar, eliminar)</button></div>
     <textarea id="script" spellcheck="false" placeholder="Pega aquí tu guion..."></textarea>
     <div class="hint">Marcas (línea sola): <b>[PAUSA]</b> <b>[CORTE]</b> <b>[ENFATIZAR: texto]</b>. No cuentan como palabras. <span id="hk1"></span></div>
   </div>
@@ -145,6 +158,11 @@ body.hide #hud{opacity:.35}
         <div id="micst"></div>
       </div>
     </div>
+    <div id="aud2">
+      <div class="tg"><span>Grabar solo audio (sin cámara)</span><button id="audT">NO</button></div>
+      <div id="audOpts" class="sgr"><span>Formato de audio</span><div class="seg" data-k="audFmt"><button data-v="mp3">MP3</button><button data-v="wav">WAV (sin pérdida)</button></div></div>
+      <div id="audst" class="hint"></div>
+    </div>
     <div id="cam2">
       <div class="tg"><span>Grabarme con la cámara</span><button id="camT">NO</button></div>
       <div class="sgr"><span>Cámara</span><div class="seg" data-k="camBack"><button data-v="0">Frontal</button><button data-v="1">Trasera</button></div></div>
@@ -157,7 +175,7 @@ body.hide #hud{opacity:.35}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button id="open">Abrir guion (.txt)</button><button id="saveTxt">Guardar guion (.txt)</button></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button id="bkExp">Copia de seguridad</button><button id="bkImp">Restaurar copia</button></div>
-    <input type="file" id="file" accept=".txt,text/plain" style="display:none">
+    <input type="file" id="file" accept=".txt,text/plain" multiple style="display:none">
     <input type="file" id="bkFile" accept=".json,application/json" style="display:none">
     <div class="hint">Los guiones se guardan en este dispositivo. Haz una copia de seguridad de vez en cuando.</div>
     <button id="keysBtn">Personalizar botones</button>
@@ -183,9 +201,19 @@ body.hide #hud{opacity:.35}
     <div class="ft"><button id="dlgC">Cancelar</button><button class="pri" id="dlgO">Aceptar</button></div>
   </div>
 </div>
+<div id="mgr">
+  <div class="box">
+    <h2 style="margin:0;font-size:22px">Lista de guiones</h2>
+    <div class="lr"><span style="width:auto">Canal</span><select id="mgCh"></select></div>
+    <div class="lr"><button id="mgImp">+ Importar varios .txt</button><button id="mgAll">Seleccionar todo</button><button id="mgDelSel">Eliminar seleccionados</button><button id="mgDelAll">Eliminar todos</button></div>
+    <div class="hint">Toca el nombre para abrir ese guion. Usa ↑ ↓ para ordenar y ✕ para eliminar uno. "Eliminar todos" vacía este canal.</div>
+    <div class="mgl" id="mgList"></div>
+    <div class="ft"><button class="pri" id="mgClose">Cerrar</button></div>
+  </div>
+</div>
 <div id="done">
   <div class="box">
-    <h2 style="margin:0;font-size:22px">Grabación lista</h2>
+    <h2 id="doneT" style="margin:0;font-size:22px">Grabación lista</h2>
     <video id="doneV" controls playsinline></video>
     <div class="hint" id="doneI"></div>
     <div class="ft"><button class="pri" id="doneS">Guardar / Compartir</button><button id="doneD">Descargar</button><button id="doneC">Cerrar</button></div>
@@ -224,7 +252,7 @@ body.hide #hud{opacity:.35}
 var $=function(i){return document.getElementById(i)};
 var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"],zoomIn:["z"],zoomOut:["x"],swap:["c"]};
 function cloneKeys(k){var o={};for(var a in k)o[a]=[k[a][0]||"",k[a][1]||""];return o}
-var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,lib:null},S=Object.assign({},D);
+var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,aud:false,audFmt:"mp3",lib:null},S=Object.assign({},D);
 try{var j=JSON.parse(localStorage.getItem(KEY)||"null");if(j)S=Object.assign({},D,j)}catch(e){}
 (function(){var d=cloneKeys(DEFKEYS),u=S.keys||{};for(var a in d)if(u[a]&&u[a].length)d[a]=[u[a][0]||"",u[a][1]||""];S.keys=d})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -421,7 +449,8 @@ function start(){
   lockWake();
   $("pp").textContent="PLAY";
   recUsed=false;
-  if(S.cam)camOpen(function(){$("pp").innerHTML="&#9679; GRABAR Y EMPEZAR";showBar(true)});else countdown();
+  if(S.aud)audOpen(function(){$("pp").innerHTML="&#9679; GRABAR Y EMPEZAR";showBar(true)});
+  else if(S.cam)camOpen(function(){$("pp").innerHTML="&#9679; GRABAR Y EMPEZAR";showBar(true)});else countdown();
 }
 function stop(){
   pause();cancelCount();running=false;
@@ -576,6 +605,71 @@ $("scDel").addEventListener("click",function(){
     if(!c.scripts.length)c.scripts.push(mkScript("Guion 1",""));
     S.lib.cur.s="";ensureLib();save();renderLib();loadCur();
   });
+});
+/* ---- Lista de guiones (abrir, ordenar, importar, eliminar) ---- */
+var mgSel={};
+function mgrOpen(){return $("mgr").classList.contains("open")}
+function mgChan(){var c=chById($("mgCh").value);return c||curCh()}
+function mgRender(){
+  var h="";S.lib.channels.forEach(function(c){h+='<option value="'+c.id+'"'+(c.id===(mgCh0||S.lib.cur.c)?" selected":"")+'>'+esc(c.name)+" ("+c.scripts.length+")</option>"});
+  $("mgCh").innerHTML=h;
+  var c=mgChan();mgCh0=c.id;h="";
+  c.scripts.forEach(function(s,i){
+    var w=(s.text.match(/\S+/g)||[]).length;
+    h+='<div class="mgr'+(s.id===S.lib.cur.s&&c.id===S.lib.cur.c?" cur":"")+'" data-id="'+s.id+'"><input type="checkbox" data-a="sel"'+(mgSel[s.id]?" checked":"")+'><span class="t" data-a="open">'+esc(s.title)+'</span><span class="sm">'+w+' pal.</span><button data-a="up"'+(i?"":" disabled")+'>&#8593;</button><button data-a="dn"'+(i<c.scripts.length-1?"":" disabled")+'>&#8595;</button><button data-a="del">&#10005;</button></div>';
+  });
+  $("mgList").innerHTML=h;
+  var n=0;c.scripts.forEach(function(s){if(mgSel[s.id])n++});
+  $("mgAll").textContent=n&&n===c.scripts.length?"Quitar selección":"Seleccionar todo";
+  $("mgDelSel").textContent="Eliminar seleccionados"+(n?" ("+n+")":"");
+}
+var mgCh0="";
+function mgAfterDelete(){
+  var c=curCh();if(!c.scripts.length)c.scripts.push(mkScript("Guion 1",""));
+  S.lib.cur.s="";ensureLib();save();renderLib();loadCur();mgRender();
+}
+function mgDelete(c,ids,msg){
+  dlgOpen({title:"Eliminar",msg:msg+" No se puede deshacer.",ok:"Eliminar",danger:true},function(){
+    var curId=S.lib.cur.s;
+    c.scripts=c.scripts.filter(function(s){return ids.indexOf(s.id)<0});
+    ids.forEach(function(i){delete mgSel[i]});
+    if(!c.scripts.length)c.scripts.push(mkScript("Guion 1",""));
+    if(c.id===S.lib.cur.c){if(ids.indexOf(curId)>=0)S.lib.cur.s="";ensureLib();save();renderLib();loadCur()}
+    else{if(c.last&&!scIn(c,c.last))c.last=c.scripts[0].id;save();renderLib()}
+    mgRender();
+  });
+}
+$("mgOpen").addEventListener("click",function(){syncScript();mgSel={};mgCh0=S.lib.cur.c;mgRender();$("mgr").classList.add("open")});
+$("mgClose").addEventListener("click",function(){$("mgr").classList.remove("open")});
+$("mgCh").addEventListener("change",function(){mgCh0=this.value;mgRender()});
+$("mgImp").addEventListener("click",function(){
+  var c=mgChan();if(c.id!==S.lib.cur.c){syncScript();var s=scIn(c,c.last)||c.scripts[0];selectSc(c,s)}
+  $("file").click();
+});
+$("mgAll").addEventListener("click",function(){
+  var c=mgChan(),all=c.scripts.every(function(s){return mgSel[s.id]});
+  c.scripts.forEach(function(s){if(all)delete mgSel[s.id];else mgSel[s.id]=true});mgRender();
+});
+$("mgDelSel").addEventListener("click",function(){
+  var c=mgChan(),ids=c.scripts.filter(function(s){return mgSel[s.id]}).map(function(s){return s.id});
+  if(!ids.length){dlgOpen({title:"Nada seleccionado",msg:"Marca con la casilla los guiones que quieres eliminar.",ok:"Entendido"},function(){});return}
+  mgDelete(c,ids,"Se eliminarán "+ids.length+" guion"+(ids.length===1?"":"es")+" de \""+c.name+"\".");
+});
+$("mgDelAll").addEventListener("click",function(){
+  var c=mgChan(),n=c.scripts.length;
+  mgDelete(c,c.scripts.map(function(s){return s.id}),"Se eliminarán TODOS los guiones ("+n+") del canal \""+c.name+"\".");
+});
+$("mgList").addEventListener("click",function(e){
+  var el=e.target.closest&&e.target.closest("[data-a]");if(!el)return;
+  var row=el.closest(".mgr"),id=row.getAttribute("data-id"),c=mgChan(),a=el.getAttribute("data-a"),i=-1;
+  c.scripts.forEach(function(s,k){if(s.id===id)i=k});if(i<0)return;
+  if(a==="sel"){if(el.checked)mgSel[id]=true;else delete mgSel[id];mgRender()}
+  else if(a==="open"){syncScript();selectSc(c,c.scripts[i]);$("mgr").classList.remove("open")}
+  else if(a==="up"||a==="dn"){
+    var j=a==="up"?i-1:i+1;if(j<0||j>=c.scripts.length)return;
+    var t=c.scripts[i];c.scripts[i]=c.scripts[j];c.scripts[j]=t;save();renderLib();mgRender();
+  }
+  else if(a==="del")mgDelete(c,[id],"Se eliminará \""+c.scripts[i].title+"\".");
 });
 function curTitleFile(){var s=curSc();return(s?s.title:"guion").replace(/[\\\/:*?"<>|]+/g,"_").trim()||"guion"}
 function saveBlob(blob,name){
@@ -775,14 +869,22 @@ function toggleFs(){
 }
 $("open").addEventListener("click",function(){$("file").click()});
 $("file").addEventListener("change",function(){
-  var f=this.files&&this.files[0];if(!f)return;
-  var r=new FileReader();
-  var fname=f.name.replace(/\.[^.]*$/,"")||"Guion";
-  r.onload=function(){
-    syncScript();var c=curCh(),sc=mkScript(fname,String(r.result).replace(/^﻿/,""));
-    c.scripts.push(sc);selectSc(c,sc);
-  };
-  r.readAsText(f,"UTF-8");this.value="";
+  var fs=Array.prototype.slice.call(this.files||[]);this.value="";
+  if(!fs.length)return;
+  fs.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true})});
+  Promise.all(fs.map(function(f){return new Promise(function(res){
+    var r=new FileReader();
+    r.onload=function(){res(mkScript(f.name.replace(/\.[^.]*$/,"")||"Guion",String(r.result).replace(/^﻿/,"")))};
+    r.onerror=function(){res(null)};
+    r.readAsText(f,"UTF-8");
+  })})).then(function(a){
+    a=a.filter(Boolean);if(!a.length)return;
+    syncScript();var c=curCh();
+    if(c.scripts.length===1&&!/\S/.test(c.scripts[0].text))c.scripts.length=0;
+    a.forEach(function(s){c.scripts.push(s)});
+    selectSc(c,a[0]);if(mgrOpen())mgRender();
+    if(a.length>1)dlgOpen({title:"Guiones importados",msg:a.length+" guiones añadidos al canal \""+c.name+"\". Los tienes en la lista de guiones.",ok:"Listo"},function(){});
+  });
 });
 $("saveTxt").addEventListener("click",function(){
   var b=new Blob(["﻿"+script.value],{type:"text/plain;charset=utf-8"}),a=document.createElement("a");
@@ -796,9 +898,12 @@ function setFs(v){
 var recInfo="",cam=$("cam"),stream=null,rec=null,recUsed=false,chunks=[],recMime="",recT0=0,doneBlob=null,doneUrl="",doneName="";
 function camUi(){
   $("camT").textContent=S.cam?"SÍ":"NO";$("camT").classList.toggle("on",S.cam);
+  $("audT").textContent=S.aud?"SÍ":"NO";$("audT").classList.toggle("on",S.aud);
+  $("audOpts").style.display=S.aud?"":"none";
+  $("audst").textContent=S.aud?"Al pulsar INICIAR se abre el micrófono; la grabación empieza con el botón verde (cuenta atrás de 3 s). Al terminar podrás guardar o compartir el archivo "+(S.audFmt==="wav"?"WAV (calidad máxima, pesa más)":"MP3 (128 kbps, pesa poco)")+". Mono.":"";
   $("camM").textContent=S.camMir?"SÍ":"NO";$("camM").classList.toggle("on",S.camMir);
   $("camG").textContent=S.camGrid?"SÍ":"NO";$("camG").classList.toggle("on",S.camGrid);
-  var sg=document.querySelectorAll("#cam2 .seg");
+  var sg=document.querySelectorAll("#cam2 .seg,#aud2 .seg");
   for(var i=0;i<sg.length;i++){
     var k=sg[i].getAttribute("data-k"),cur=k==="camBack"?(S.camBack?"1":"0"):String(S[k]),bs=sg[i].children;
     for(var j=0;j<bs.length;j++)bs[j].classList.toggle("on",bs[j].getAttribute("data-v")===cur);
@@ -814,7 +919,7 @@ function outDims(){
   return S.camFmt==="v"?[q,l]:S.camFmt==="s"?[q,q]:[l,q];
 }
 (function(){
-  var sg=document.querySelectorAll("#cam2 .seg");
+  var sg=document.querySelectorAll("#cam2 .seg,#aud2 .seg");
   for(var i=0;i<sg.length;i++)sg[i].addEventListener("click",function(e){
     var b=e.target.closest&&e.target.closest("button[data-v]");if(!b)return;
     var k=this.getAttribute("data-k"),v=b.getAttribute("data-v");
@@ -849,7 +954,8 @@ function drawLoop(){
     put(cctx,vw,vh,r,Math.min(W/ew,H/eh)*z,W,H);
   }else put(cctx,vw,vh,r,Math.max(W/ew,H/eh)*z,W,H);
 }
-$("camT").addEventListener("click",function(){S.cam=!S.cam;save();camUi()});
+$("camT").addEventListener("click",function(){S.cam=!S.cam;if(S.cam)S.aud=false;save();camUi()});
+$("audT").addEventListener("click",function(){S.aud=!S.aud;if(S.aud)S.cam=false;save();camUi()});
 $("camM").addEventListener("click",function(){S.camMir=!S.camMir;save();camUi()});
 function camSwitch(){
   if(!stream||rec)return;
@@ -879,13 +985,84 @@ function camClose(){
   if(stream){stream.getTracks().forEach(function(x){x.stop()});stream=null}
   clearInterval(drawRaf);$("rotB").style.display="none";$("gridB").style.display="none";$("swB").style.display="none";
   cam.srcObject=null;document.body.classList.remove("cam");
+  audMode=false;try{if(audCtx)audCtx.close()}catch(e){}audCtx=null;audNode=null;audSrc=null;audZ=null;
 }
 function recChip(){
   if(!rec)return"";
-  return'<span class="chip rec">● REC '+fmt((performance.now()-recT0)/1000)+'</span>';
+  var lv="";if(audMode){var k=Math.min(5,Math.round(audLvl*9));lv=" "+"▮▮▮▮▮".slice(0,k)+"▯▯▯▯▯".slice(0,5-k)}
+  return'<span class="chip rec">● REC '+fmt((performance.now()-recT0)/1000)+lv+'</span>';
+}
+var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null;
+function loadLame(){
+  if(window.lamejs&&lamejs.Mp3Encoder)return Promise.resolve(true);
+  if(lameP)return lameP;
+  lameP=new Promise(function(res){
+    var sc=document.createElement("script");sc.src="lame.min.js";
+    sc.onload=function(){var ok=!!(window.lamejs&&lamejs.Mp3Encoder);if(!ok)lameP=null;res(ok)};
+    sc.onerror=function(){lameP=null;res(false)};
+    document.head.appendChild(sc);
+  });
+  return lameP;
+}
+function audOpen(cb){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail("Este navegador no permite usar el micrófono (necesita HTTPS o localhost).");return}
+  var AC=window.AudioContext||window.webkitAudioContext;
+  try{try{audCtx=new AC({sampleRate:48000})}catch(e){audCtx=new AC()}if(audCtx.resume)audCtx.resume()}catch(e){audCtx=null;camFail("Este navegador no permite grabar audio.");return}
+  var pl=S.audFmt==="mp3"?loadLame():Promise.resolve(true);
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(function(s){
+    if(!running){s.getTracks().forEach(function(x){x.stop()});try{audCtx.close()}catch(e){}audCtx=null;return}
+    stream=s;audMode=true;
+    pl.then(function(ok){
+      if(!audCtx||!running)return;
+      audFmtUse=(S.audFmt==="mp3"&&ok&&[8000,11025,12000,16000,22050,24000,32000,44100,48000].indexOf(audCtx.sampleRate)>=0)?"mp3":"wav";
+      if(S.audFmt==="mp3"&&audFmtUse!=="mp3")$("camst").textContent="No pude usar el codificador MP3 en este dispositivo; se grabará en WAV.";
+      cb();
+    });
+  }).catch(function(e){camFail("No pude abrir el micrófono: "+(e&&e.name?e.name:e))});
+}
+function audRecStart(){
+  try{if(audCtx.state==="suspended")audCtx.resume()}catch(e){}
+  audSrc=audCtx.createMediaStreamSource(stream);
+  audNode=audCtx.createScriptProcessor(4096,1,1);
+  audRate=audCtx.sampleRate;audChunks=[];audMp3=[];audN=0;audLvl=0;
+  audEnc=audFmtUse==="mp3"?new lamejs.Mp3Encoder(1,audRate,128):null;
+  audNode.onaudioprocess=function(e){
+    var inp=e.inputBuffer.getChannelData(0),n=inp.length,pcm=new Int16Array(n),pk=0,v,a;
+    for(var i=0;i<n;i++){v=inp[i];if(v>1)v=1;else if(v<-1)v=-1;a=v<0?-v:v;if(a>pk)pk=a;pcm[i]=v<0?v*32768:v*32767}
+    audLvl=pk;audN+=n;
+    if(audEnc){var b=audEnc.encodeBuffer(pcm);if(b.length)audMp3.push(b)}else audChunks.push(pcm);
+  };
+  audSrc.connect(audNode);
+  audZ=audCtx.createGain();audZ.gain.value=0;audNode.connect(audZ);audZ.connect(audCtx.destination);
+  recT0=performance.now();
+  rec={state:"recording",stop:audRecFinish};
+  var au=stream.getAudioTracks()[0];
+  recInfo=(audFmtUse==="mp3"?"MP3 128 kbps":"WAV 16 bits sin compresión")+" · mono · "+Math.round(audRate/1000*10)/10+" kHz"+(au&&au.label?" · micrófono: "+au.label:"");
+  $("recB").style.display="";
+}
+function audRecFinish(){
+  try{audNode.onaudioprocess=null;audSrc.disconnect();audNode.disconnect();audZ.disconnect()}catch(e){}
+  var parts,type,ext,n=audN;
+  if(!n)return;
+  if(audEnc){var f=audEnc.flush();if(f.length)audMp3.push(f);parts=audMp3;type="audio/mpeg";ext="mp3"}
+  else{
+    var h=new DataView(new ArrayBuffer(44)),L=n*2,w=function(o,t){for(var i=0;i<t.length;i++)h.setUint8(o+i,t.charCodeAt(i))};
+    w(0,"RIFF");h.setUint32(4,36+L,true);w(8,"WAVE");w(12,"fmt ");h.setUint32(16,16,true);h.setUint16(20,1,true);h.setUint16(22,1,true);
+    h.setUint32(24,audRate,true);h.setUint32(28,audRate*2,true);h.setUint16(32,2,true);h.setUint16(34,16,true);w(36,"data");h.setUint32(40,L,true);
+    parts=[h.buffer].concat(audChunks);type="audio/wav";ext="wav";
+  }
+  doneBlob=new Blob(parts,{type:type});audChunks=[];audMp3=[];audEnc=null;
+  var d=new Date(),p=function(x){return(x<10?"0":"")+x};
+  doneName="audio_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
+  if(doneUrl)URL.revokeObjectURL(doneUrl);
+  doneUrl=URL.createObjectURL(doneBlob);$("doneV").src=doneUrl;
+  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · duración "+fmt(n/audRate)+" · "+recInfo+". Si cierras esto sin guardar, se pierde.";
+  $("doneT").textContent="Audio listo";
+  $("done").classList.add("open");
 }
 var RECCANDS=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
 function recStart(from,retry){
+  if(audMode){audRecStart();return}
   if(!window.MediaRecorder){return}
   var c=RECCANDS,idx=from||0;
   recMime="";for(var i=idx;i<c.length;i++){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c[i])){recMime=c[i];idx=i;break}}
@@ -921,7 +1098,7 @@ function showDone(mt){
   doneName="grabacion_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);
-  $("doneV").src=doneUrl;
+  $("doneV").src=doneUrl;$("doneT").textContent="Grabación lista";
   var seg=Math.max(1,(performance.now()-recT0)/1000);
   $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Si cierras esto sin guardar, se pierde.";
   $("done").classList.add("open");
