@@ -199,6 +199,8 @@ body.hide #hud{opacity:.35}
         <label class="row">Letra<input type="range" id="fs" min="28" max="140" step="2"><output id="fsO"></output></label>
         <label class="row">Ancho<input type="range" id="cw" min="30" max="100" step="2"><output id="cwO"></output></label>
         <label class="row">Interlineado<input type="range" id="lh" min="1.1" max="2.4" step="0.05"><output id="lhO"></output></label>
+        <label class="row">Altura de lectura<input type="range" id="guide2" min="3" max="50" step="1"><output id="guide2O"></output></label>
+        <div class="tg"><span>Leer cerca de la cámara (arriba)</span><button id="gNear">AJUSTAR</button></div>
         <div class="tg"><span>Espejo horizontal</span><button id="mir">NO</button></div>
         <div class="tg"><span>Micrófono: seguir mi voz</span><button id="mic" class="mic">NO</button></div>
         <div id="micst"></div>
@@ -367,7 +369,7 @@ body.hide #hud{opacity:.35}
 var $=function(i){return document.getElementById(i)};
 var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"],zoomIn:["z"],zoomOut:["x"],swap:["c"]};
 function cloneKeys(k){var o={};for(var a in k)o[a]=[k[a][0]||"",k[a][1]||""];return o}
-var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,aud:false,audFmt:"mp3",micId:"",vBlk:false,lib:null},S=Object.assign({},D);
+var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,aud:false,audFmt:"mp3",micId:"",vBlk:false,guide:30,lib:null},S=Object.assign({},D);
 try{var j=JSON.parse(localStorage.getItem(KEY)||"null");if(j)S=Object.assign({},D,j)}catch(e){}
 (function(){var d=cloneKeys(DEFKEYS),u=S.keys||{};for(var a in d)if(u[a]&&u[a].length)d[a]=[u[a][0]||"",u[a][1]||""];S.keys=d})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -418,10 +420,11 @@ function build(){
 }
 function measure(){
   var vh=stage.clientHeight||window.innerHeight;
-  txt.style.paddingTop=(vh*GUIDE)+"px";
+  var G=(+S.guide||30)/100;
+  txt.style.paddingTop=(vh*G)+"px";
   txt.style.paddingBottom=(vh*0.7)+"px";
-  guide.style.top=(vh*GUIDE)+"px";
-  var pt=vh*GUIDE;
+  guide.style.top=(vh*G)+"px";
+  var pt=vh*G;
   blocks.forEach(function(b){
     b.top=b.el.offsetTop-pt;
     b.h=b.el.offsetHeight;
@@ -629,6 +632,8 @@ bindRange("wpm","wpm",function(v){return v+" ppm"},function(){
 bindRange("fs","fs",function(v){return v+" px"},relayout);
 bindRange("cw","cw",function(v){return v+"%"},relayout);
 bindRange("lh","lh",function(v){return(+v).toFixed(2)},relayout);
+bindRange("guide2","guide",function(v){return v+"% desde arriba"},function(){if(running){measure();render()}});
+$("gNear").addEventListener("click",function(){S.guide=6;$("guide2").value=6;$("guide2O").textContent="6% desde arriba";save();if(running){measure();render()}});
 $("mir").addEventListener("click",function(){S.mir=!S.mir;save();applyCss()});
 
 /* ---- Biblioteca: canales y guiones ---- */
