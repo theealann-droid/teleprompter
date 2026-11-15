@@ -331,6 +331,7 @@ body.hide #hud{opacity:.35}
       <button id="gridB" style="display:none">&#9638; Cuadrícula</button>
       <button id="swB" style="display:none">&#8644; Cambiar cámara</button>
       <label class="zm">Zoom <input type="range" id="zm" min="1" max="4" step="0.05" value="1"><output id="zmO">1.0×</output></label>
+      <button id="delB" style="display:none">Borrar último bloque</button>
       <button id="recB"style="display:none;background:#ff2d2d;border-color:#ff2d2d">&#9632; Detener grabación</button>
       <button id="exit">Editar guion</button>
     </div>
@@ -486,13 +487,15 @@ function play(){
   else if(t>=total-0.05)t=0;
   playing=true;last=performance.now();
   if(stream&&!rec&&!recUsed)recStart();
-  $("pp").textContent="PAUSA";
+  if(audMode&&rec&&!audCur)audNewBlock();
+  $("pp").textContent="PAUSA";audUi();
   lockWake();showBar(false);
   raf=requestAnimationFrame(tick);
 }
 function pause(){
   playing=false;cancelAnimationFrame(raf);
   $("pp").textContent="PLAY";
+  if(audMode&&rec){audBlockEnd();$("pp").innerHTML="&#9679; SEGUIR GRABANDO";audUi();render()}
   showBar(true);
 }
 function toggle(){
@@ -1106,9 +1109,33 @@ function camClose(){
 function recChip(){
   if(!rec)return"";
   var lv="";if(audMode){var k=Math.min(5,Math.round(audLvl*9));lv=" "+"▮▮▮▮▮".slice(0,k)+"▯▯▯▯▯".slice(0,5-k)}
+  if(audMode)return'<span class="chip rec">'+(audCur?"● REC ":"⏸ PAUSA ")+fmt(audTot())+" · bloque "+(audCur?audBl.length:audBl.length+1)+(audCur?lv:"")+'</span>';
   return'<span class="chip rec">● REC '+fmt((performance.now()-recT0)/1000)+lv+'</span>';
 }
-var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null;
+var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null,audBl=[],audCur=null;
+/* Bloques: cada vez que pausas y sigues, se abre un bloque nuevo; el último se puede borrar solo. */
+function audNewBlock(){
+  audCur={ch:[],mp3:[],n:0,t:t,ptr:ptr,y:yCur,enc:audFmtUse==="mp3"?new lamejs.Mp3Encoder(1,audRate,128):null};
+  audBl.push(audCur);
+}
+function audBlockEnd(){
+  if(!audCur)return;
+  if(audCur.enc){var f=audCur.enc.flush();if(f.length)audCur.mp3.push(f);audCur.enc=null}
+  if(!audCur.n)audBl.pop();
+  audCur=null;
+}
+function audTot(){var s=0;for(var i=0;i<audBl.length;i++)s+=audBl[i].n;return s/(audRate||48000)}
+function audUi(){
+  var b=$("delB"),on=audMode&&rec&&!playing&&!audCur&&audBl.length>0;
+  b.style.display=on?"":"none";
+  if(on)b.textContent="\u{1F5D1} Borrar último bloque ("+fmt(audBl[audBl.length-1].n/audRate)+")";
+}
+$("delB").addEventListener("click",function(){
+  if(!audMode||!rec||playing||audCur||!audBl.length)return;
+  var b=audBl.pop();
+  ptr=b.ptr;aest.ptr=ptr;t=b.t;yCur=b.y;
+  audUi();render();
+});
 function loadLame(){
   if(window.lamejs&&lamejs.Mp3Encoder)return Promise.resolve(true);
   if(lameP)return lameP;
@@ -1140,13 +1167,14 @@ function audRecStart(){
   try{if(audCtx.state==="suspended")audCtx.resume()}catch(e){}
   audSrc=audCtx.createMediaStreamSource(stream);
   audNode=audCtx.createScriptProcessor(4096,1,1);
-  audRate=audCtx.sampleRate;audChunks=[];audMp3=[];audN=0;audLvl=0;
-  audEnc=audFmtUse==="mp3"?new lamejs.Mp3Encoder(1,audRate,128):null;
+  audRate=audCtx.sampleRate;audBl=[];audCur=null;audN=0;audLvl=0;
+  audNewBlock();
   audNode.onaudioprocess=function(e){
     var inp=e.inputBuffer.getChannelData(0),n=inp.length,pcm=new Int16Array(n),pk=0,v,a;
     for(var i=0;i<n;i++){v=inp[i];if(v>1)v=1;else if(v<-1)v=-1;a=v<0?-v:v;if(a>pk)pk=a;pcm[i]=v<0?v*32768:v*32767}
-    audLvl=pk;audN+=n;
-    audChunks.push(pcm);if(audEnc){var b=audEnc.encodeBuffer(pcm);if(b.length)audMp3.push(b)}
+    audLvl=pk;
+    var c=audCur;if(!c)return;
+    c.n+=n;c.ch.push(pcm);if(c.enc){var b=c.enc.encodeBuffer(pcm);if(b.length)c.mp3.push(b)}
   };
   audSrc.connect(audNode);
   audZ=audCtx.createGain();audZ.gain.value=0;audNode.connect(audZ);audZ.connect(audCtx.destination);
@@ -1158,9 +1186,13 @@ function audRecStart(){
 }
 function audRecFinish(){
   try{audNode.onaudioprocess=null;audSrc.disconnect();audNode.disconnect();audZ.disconnect()}catch(e){}
-  var parts,type,ext,n=audN;
+  audBlockEnd();
+  var parts,type,ext,n=0,i;
+  audChunks=[];audMp3=[];
+  for(i=0;i<audBl.length;i++){n+=audBl[i].n;audChunks=audChunks.concat(audBl[i].ch);audMp3=audMp3.concat(audBl[i].mp3)}
+  audBl=[];audUi();
   if(!n)return;
-  if(audEnc){var f=audEnc.flush();if(f.length)audMp3.push(f);parts=audMp3;type="audio/mpeg";ext="mp3"}
+  if(audFmtUse==="mp3"){parts=audMp3;type="audio/mpeg";ext="mp3"}
   else{
     var h=new DataView(new ArrayBuffer(44)),L=n*2,w=function(o,t){for(var i=0;i<t.length;i++)h.setUint8(o+i,t.charCodeAt(i))};
     w(0,"RIFF");h.setUint32(4,36+L,true);w(8,"WAVE");w(12,"fmt ");h.setUint32(16,16,true);h.setUint16(20,1,true);h.setUint16(22,1,true);
