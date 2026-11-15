@@ -101,11 +101,11 @@ details.sec>.sb{padding:0 16px 16px;display:grid;gap:12px}
 .lr .mo{min-width:52px;padding:0 10px}
 #cam2.off>*:not(:first-child){display:none}
 #setup .r #go{position:sticky;bottom:0}
-#mgr,#rl{position:fixed;inset:0;z-index:65;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
-#mgr.open,#rl.open{display:flex}
-#rl video{width:100%;max-height:30vh;background:#000;border-radius:12px;flex:none}
-#mgr .box,#rl .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
-#mgr .ft,#rl .ft{display:flex;gap:10px;justify-content:flex-end}
+#mgr,#rl,#vbl{position:fixed;inset:0;z-index:65;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
+#mgr.open,#rl.open,#vbl.open{display:flex}
+#rl video,#vbl video{width:100%;max-height:30vh;background:#000;border-radius:12px;flex:none}
+#mgr .box,#rl .box,#vbl .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
+#mgr .ft,#rl .ft,#vbl .ft{display:flex;gap:10px;justify-content:flex-end}
 #mgr select{min-height:48px;font-size:18px;max-width:100%}
 .mgl{overflow:auto;display:grid;gap:6px;min-height:80px}
 .mgr{display:flex;align-items:center;gap:8px;background:#222;border:2px solid var(--ln);border-radius:12px;padding:4px 8px}
@@ -289,6 +289,15 @@ body.hide #hud{opacity:.35}
     <div class="ft"><button class="pri" id="rlClose">Cerrar</button></div>
   </div>
 </div>
+<div id="vbl">
+  <div class="box">
+    <h2 style="margin:0;font-size:22px">Bloques de video</h2>
+    <div class="hint" id="vblInfo"></div>
+    <video id="vblV" controls playsinline style="display:none"></video>
+    <div class="mgl" id="vblList"></div>
+    <div class="ft"><button id="vblClose">Seguir grabando</button><button class="pri" id="vblJoin">Juntar y exportar</button></div>
+  </div>
+</div>
 <div id="mgr">
   <div class="box">
     <h2 style="margin:0;font-size:22px">Lista de guiones</h2>
@@ -323,7 +332,7 @@ body.hide #hud{opacity:.35}
   <button id="backBtn" aria-label="Volver a los ajustes">&#8592; Volver</button>
   <div id="hud"></div>
   <div id="count"></div>
-  <div id="fCtl" style="display:none"><button id="fPause">&#9208; PAUSA</button><button id="fDel">&#128465; Borrar bloque</button><button id="fStop">&#9632; Parar</button></div>
+  <div id="fCtl" style="display:none"><button id="fPause">&#9208; PAUSA</button><button id="fDel">&#128465; Borrar bloque</button><button id="fBl" style="display:none">&#127902; Bloques</button><button id="fStop">&#9632; Parar</button></div>
   <div id="bar">
     <div id="panelSlot"></div>
     <div class="btns">
@@ -493,7 +502,7 @@ function play(){
   playing=true;last=performance.now();
   if(stream&&!rec&&!recUsed)recStart();
   if(audMode&&rec&&!audCur)audNewBlock();
-  if(!audMode&&rec&&rec.state==="paused"){try{rec.resume();recT0+=performance.now()-vPt}catch(e){}}
+  if(!audMode&&rec&&rec.state==="paused"){rec.state="recording";vBlockStart()}
   $("pp").textContent="PAUSA";audUi();
   lockWake();showBar(false);audUi();
   raf=requestAnimationFrame(tick);
@@ -503,7 +512,7 @@ function pause(){
   $("pp").textContent="PLAY";
   if(rec&&(audMode||S.cam)){
     if(audMode)audBlockEnd();
-    else if(rec.state==="recording"){try{rec.pause();vPt=performance.now()}catch(e){}}
+    else if(rec.state==="recording"){rec.state="paused";vStopLive()}
     $("pp").innerHTML="&#9679; SEGUIR GRABANDO";render();
   }
   showBar(true);
@@ -1122,7 +1131,7 @@ function recChip(){
   var lv="";if(audMode){var k=Math.min(5,Math.round(audLvl*9));lv=" "+"▮▮▮▮▮".slice(0,k)+"▯▯▯▯▯".slice(0,5-k)}
   if(audMode)return'<span class="chip rec">'+(audCur?"● REC ":"⏸ PAUSA ")+fmt(audTot())+" · bloque "+(audCur?audBl.length:audBl.length+1)+(audCur?lv:"")+'</span>';
   var vp=rec.state==="paused";
-  return'<span class="chip rec">'+(vp?"⏸ PAUSA ":"● REC ")+fmt(((vp?vPt:performance.now())-recT0)/1000)+(vp?"":lv)+'</span>';
+  return'<span class="chip rec">'+(vp?"⏸ PAUSA ":"● REC ")+fmt(vTot())+" · bloque "+(vp?vBl.length+1:Math.max(1,vBl.length+(vLive?1:0)))+(vp?"":lv)+'</span>';
 }
 var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null,audBl=[],audCur=null,vPt=0;
 /* Bloques: cada vez que pausas y sigues, se abre un bloque nuevo; el último se puede borrar solo. */
@@ -1144,21 +1153,175 @@ function audUi(){
   fc.style.display=fon?"":"none";
   if(fon){
     $("fPause").innerHTML=playing?"&#9208; PAUSA":"&#9679; SEGUIR";
-    $("fDel").style.display=audMode?"":"none";
-    $("fDel").disabled=!audBl.length;
-    $("fDel").textContent="\u{1F5D1} Borrar bloque"+(audBl.length?" ("+fmt(audBl[audBl.length-1].n/audRate)+")":"");
+    var nb=audMode?audBl.length:vBl.length+(vLive?1:0);
+    $("fDel").disabled=!nb;
+    $("fDel").textContent="\u{1F5D1} Borrar bloque"+(!playing&&nb?" ("+fmt(audMode?audBl[nb-1].n/audRate:vBl[nb-1].dur)+")":"");
+    $("fBl").style.display=audMode?"none":"";
+    $("fBl").textContent="\u{1F39E} Bloques ("+nb+")";
     fc.style.bottom=(document.body.classList.contains("hide")?22:($("bar").offsetHeight+14))+"px";
   }
   if(on)b.textContent="\u{1F5D1} Borrar último bloque ("+fmt(audBl[audBl.length-1].n/audRate)+")";
 }
 function audDelLast(){
-  if(!audMode||!rec)return;
+  if(!rec)return;
   if(playing)pause();
+  if(!audMode){
+    vWhenIdle(function(){
+      if(!vBl.length)return;
+      var b=vBl.pop().s;
+      ptr=b.ptr;aest.ptr=ptr;t=b.t;yCur=b.y;
+      audUi();render();
+    });
+    return;
+  }
   if(!audBl.length)return;
   var b=audBl.pop();
   ptr=b.ptr;aest.ptr=ptr;t=b.t;yCur=b.y;
   audUi();render();
 }
+/* ---- Editor de bloques de video ---- */
+var vEdFinal=false;
+function vEdOpen(fin){vEdFinal=!!fin;$("vblClose").style.display=fin?"none":"";vEdRender();$("vbl").classList.add("open")}
+function vEdRender(){
+  var h="",tot=0;
+  vBl.forEach(function(b,i){
+    tot+=b.dur;
+    h+='<div class="mgr" data-i="'+i+'"><span class="t" data-a="play">&#9654; Bloque '+(i+1)+'</span><span class="sm">'+fmt(b.dur)+" · "+(b.blob.size/1048576).toFixed(1)+' MB</span><button data-a="up"'+(i?"":" disabled")+'>&#8593;</button><button data-a="dn"'+(i<vBl.length-1?"":" disabled")+'>&#8595;</button><button data-a="sv">Guardar</button><button data-a="del">&#10005;</button></div>';
+  });
+  $("vblList").innerHTML=h||'<div class="hint">No hay bloques.</div>';
+  $("vblInfo").textContent=vBl.length?vBl.length+" bloque"+(vBl.length===1?"":"s")+" · "+fmt(tot)+" en total. Toca un bloque para verlo. «Juntar y exportar» los une en un solo video sin perder calidad.":"No hay bloques grabados todavía.";
+  $("vblJoin").disabled=!vBl.length;
+}
+function vPlayStop(){var V=$("vblV");try{V.pause()}catch(e){}if(V.dataset.u){URL.revokeObjectURL(V.dataset.u);V.dataset.u=""}V.removeAttribute("src");V.style.display="none"}
+function vDoJoin(){
+  var bs=vBl.slice(),btn=$("vblJoin");
+  if(!bs.length)return;
+  if(bs.length===1){vBl=[];vPlayStop();$("vbl").classList.remove("open");showDone(bs[0].mt,bs[0].blob,bs[0].dur);return}
+  btn.disabled=true;btn.textContent="Juntando…";
+  mp4Join(bs).then(function(r){
+    vBl=[];vPlayStop();$("vbl").classList.remove("open");showDone("video/mp4",r.blob,r.dur);
+  }).catch(function(e){
+    vEdOpen(vEdFinal||!rec);
+    dlgOpen({title:"No pude juntarlos",msg:"Este navegador generó los bloques en un formato que no se puede unir sin recodificar. Tus bloques siguen aquí: usa «Guardar» en cada uno para no perderlos.",ok:"Entendido"},function(){});
+  }).then(function(){btn.textContent="Juntar y exportar";btn.disabled=!vBl.length});
+}
+$("vblClose").addEventListener("click",function(){vPlayStop();$("vbl").classList.remove("open")});
+$("vblJoin").addEventListener("click",function(){
+  if(!vBl.length)return;
+  if(rec){vAuto=true;vPlayStop();$("vbl").classList.remove("open");if(playing)pause();recStop();return}
+  vDoJoin();
+});
+$("vblList").addEventListener("click",function(e){
+  var el=e.target.closest&&e.target.closest("[data-a]");if(!el||el.disabled)return;
+  var i=parseInt(el.closest(".mgr").getAttribute("data-i"),10),a=el.getAttribute("data-a"),b=vBl[i],x;
+  if(!b)return;
+  if(a==="up"&&i>0){x=vBl[i-1];vBl[i-1]=b;vBl[i]=x;vEdRender()}
+  else if(a==="dn"&&i<vBl.length-1){x=vBl[i+1];vBl[i+1]=b;vBl[i]=x;vEdRender()}
+  else if(a==="del")dlgOpen({title:"Eliminar bloque",msg:"Se eliminará el bloque "+(i+1)+". No se puede deshacer.",ok:"Eliminar",danger:true},function(){
+    vPlayStop();vBl.splice(i,1);
+    if(!vBl.length&&vEdFinal){$("vbl").classList.remove("open");return}
+    vEdRender();audUi();
+  });
+  else if(a==="play"){var V=$("vblV");vPlayStop();var u=URL.createObjectURL(b.blob);V.dataset.u=u;V.src=u;V.style.display="";V.play().catch(function(){})}
+  else if(a==="sv"){
+    var nm="bloque_"+(i+1)+(/mp4/.test(b.mt)?".mp4":".webm"),f=null;
+    try{f=new File([b.blob],nm,{type:b.blob.type})}catch(z){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f]}).catch(function(){});else saveBlob(b.blob,nm);
+  }
+});
+/* Unión sin pérdida de MP4 fragmentados (los que graba el navegador): se copian los fragmentos y solo se desplazan sus tiempos. */
+function mp4Boxes(u,s,en){
+  var dv=new DataView(u.buffer,u.byteOffset,u.byteLength),o=s,a=[],sz,h;
+  while(o+8<=en){
+    sz=dv.getUint32(o);h=8;
+    if(sz===1){sz=dv.getUint32(o+8)*4294967296+dv.getUint32(o+12);h=16}else if(sz===0)sz=en-o;
+    if(sz<h||o+sz>en)break;
+    a.push({t:String.fromCharCode(u[o+4],u[o+5],u[o+6],u[o+7]),s:o,e:o+sz,h:h});o+=sz;
+  }
+  return a;
+}
+function mp4Info(u,mv){
+  var dv=new DataView(u.buffer,u.byteOffset,u.byteLength),m={ts:{},dd:{}};
+  mp4Boxes(u,mv.s+mv.h,mv.e).forEach(function(b){
+    if(b.t==="trak"){
+      var id=0,ts=0;
+      mp4Boxes(u,b.s+b.h,b.e).forEach(function(x){
+        var p=x.s+x.h;
+        if(x.t==="tkhd")id=dv.getUint32(p+(dv.getUint8(p)===1?20:12));
+        if(x.t==="mdia")mp4Boxes(u,p,x.e).forEach(function(y){if(y.t==="mdhd"){var q=y.s+y.h;ts=dv.getUint32(q+(dv.getUint8(q)===1?20:12))}});
+      });
+      m.ts[id]=ts;
+    }
+    if(b.t==="mvex")mp4Boxes(u,b.s+b.h,b.e).forEach(function(x){if(x.t==="trex"){var p=x.s+x.h;m.dd[dv.getUint32(p+4)]=dv.getUint32(p+12)}});
+  });
+  return m;
+}
+function mp4Frag(c,m){
+  var dv=new DataView(c.buffer,c.byteOffset,c.byteLength),top=mp4Boxes(c,0,c.length),mo=null,j,res={info:[],mfhd:-1};
+  for(j=0;j<top.length;j++)if(top[j].t==="moof"){mo=top[j];break}
+  if(!mo)throw new Error("sin moof");
+  mp4Boxes(c,mo.s+mo.h,mo.e).forEach(function(k){
+    if(k.t==="mfhd")res.mfhd=k.s+k.h+4;
+    if(k.t!=="traf")return;
+    var id=0,dd=0,pos=-1,ver=0,t0=0,dur=0;
+    mp4Boxes(c,k.s+k.h,k.e).forEach(function(x){
+      var p=x.s+x.h,fl,q,n,st,i;
+      if(x.t==="tfhd"){
+        fl=dv.getUint32(p)&0xFFFFFF;id=dv.getUint32(p+4);q=p+8;
+        if(fl&1)throw new Error("base_data_offset");
+        if(fl&2)q+=4;
+        dd=(fl&8)?dv.getUint32(q):(m.dd[id]||0);
+      }else if(x.t==="tfdt"){
+        ver=dv.getUint8(p);pos=p+4;
+        t0=ver===1?dv.getUint32(p+4)*4294967296+dv.getUint32(p+8):dv.getUint32(p+4);
+      }else if(x.t==="trun"){
+        fl=dv.getUint32(p)&0xFFFFFF;n=dv.getUint32(p+4);q=p+8;
+        if(fl&1)q+=4;if(fl&4)q+=4;
+        if(fl&0x100){
+          st=4*(((fl&0x100)?1:0)+((fl&0x200)?1:0)+((fl&0x400)?1:0)+((fl&0x800)?1:0));
+          for(i=0;i<n;i++)dur+=dv.getUint32(q+i*st);
+        }else dur+=n*dd;
+      }
+    });
+    if(pos<0)throw new Error("sin tfdt");
+    res.info.push({id:id,ver:ver,pos:ver===1?pos:pos,t0:t0,dur:dur});
+  });
+  return res;
+}
+function mp4Join(bs){
+  var i;
+  for(i=0;i<bs.length;i++)if(!/mp4/i.test(bs[i].mt||""))return Promise.reject(new Error("formato"));
+  return Promise.all(bs.map(function(b){return b.blob.arrayBuffer()})).then(function(abs){
+    var out=[],seq=0,cum=0,first=null,m=null;
+    abs.forEach(function(ab,k){
+      var u=new Uint8Array(ab),top=mp4Boxes(u,0,u.length),moov=null,fr=[],j,e,maxS=0,parts;
+      for(j=0;j<top.length;j++){
+        if(top[j].t==="moov"&&!moov)moov=top[j];
+        if(top[j].t==="moof"){e=top[j].e;if(top[j+1]&&top[j+1].t==="mdat")e=top[j+1].e;fr.push([top[j].s,e])}
+      }
+      if(!moov||!fr.length)throw new Error("no fragmentado");
+      if(k===0){first=u.slice(0,fr[0][0]);m=mp4Info(u,moov)}
+      parts=fr.map(function(r){
+        var c=u.slice(r[0],r[1]),f=mp4Frag(c,m);
+        f.info.forEach(function(x){var e2=(x.t0+x.dur)/(m.ts[x.id]||1);if(e2>maxS)maxS=e2});
+        return {c:c,f:f};
+      });
+      parts.forEach(function(p){
+        var dv=new DataView(p.c.buffer);
+        p.f.info.forEach(function(x){
+          var nv=x.t0+Math.round(cum*(m.ts[x.id]||1));
+          if(x.ver===1){dv.setUint32(x.pos,Math.floor(nv/4294967296));dv.setUint32(x.pos+4,nv>>>0)}
+          else{if(nv>4294967295)throw new Error("largo");dv.setUint32(x.pos,nv)}
+        });
+        if(p.f.mfhd>=0)dv.setUint32(p.f.mfhd,++seq);
+        out.push(p.c);
+      });
+      cum+=maxS;
+    });
+    return {blob:new Blob([first].concat(out),{type:"video/mp4"}),dur:cum};
+  });
+}
+$("fBl").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();vWhenIdle(function(){vEdOpen(false)})});
 $("fCtl").addEventListener("pointerdown",function(e){e.stopPropagation()});
 $("fPause").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();else play()});
 $("fDel").addEventListener("click",function(e){e.stopPropagation();audDelLast()});
@@ -1238,34 +1401,74 @@ function audRecFinish(){
   $("done").classList.add("open");
 }
 var RECCANDS=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
-function recStart(from,retry){
+/* Video por bloques: cada pausa cierra un bloque (un MP4 completo); al juntar se unen sin recodificar. */
+var vBl=[],vLive=null,vStopping=null,vQ=[],vSrcS=null,vIdx=0,vFin=false,vAuto=false;
+function vPickMime(from){
+  var c=RECCANDS,i;recMime="";
+  for(i=from;i<c.length;i++){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c[i])){recMime=c[i];vIdx=i;break}}
+}
+function recStart(){
   if(audMode){audRecStart();return}
   if(!window.MediaRecorder){return}
-  var c=RECCANDS,idx=from||0;
-  recMime="";for(var i=idx;i<c.length;i++){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c[i])){recMime=c[i];idx=i;break}}
-  chunks=[];
-  var src=stream;
-  try{if(camc.captureStream){var cs=camc.captureStream(30);src=new MediaStream(cs.getVideoTracks().concat(stream.getAudioTracks()))}}catch(e){src=stream}
-  try{rec=new MediaRecorder(src,recMime?{mimeType:recMime,videoBitsPerSecond:(parseInt(S.camQ,10)<1000?5000000:8000000)}:{})}catch(e){try{rec=new MediaRecorder(src)}catch(x){rec=null;return}}
-  var me=rec;
-  me.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
-  me.onstop=function(){micOff();showDone(me.mimeType||recMime)};
+  vPickMime(0);vBl=[];vSrcS=null;vFin=false;vAuto=false;vQ=[];vStopping=null;vLive=null;
   try{var vt=stream.getVideoTracks()[0],st=vt.getSettings(),au=stream.getAudioTracks()[0];
     recInfo="salida "+camc.width+"x"+camc.height+" (cámara original "+(st.width||"?")+"x"+(st.height||"?")+") a "+Math.round(st.frameRate||0)+" fps"+(au?" · audio "+Math.round((au.getSettings().sampleRate||0)/1000)+" kHz":"")+" · cámara: "+(vt.label||"sin nombre")}catch(e){recInfo=""}
-  me.onerror=function(){
-    if(rec!==me||chunks.length||idx+1>=RECCANDS.length)return;
-    me.onstop=null;me.onerror=null;try{me.stop()}catch(e){}
-    rec=null;recStart(idx+1,true);
-  };
-  if(!retry)recT0=performance.now();
-  me.start(1000);
+  rec={state:"recording",stop:vFinish};
+  recT0=performance.now();
+  if(!vBlockStart()){rec=null;return}
   $("recB").style.display="";
+}
+function vBlockStart(){
+  if(!vSrcS){
+    vSrcS=stream;
+    try{if(camc.captureStream){var cs=camc.captureStream(30);vSrcS=new MediaStream(cs.getVideoTracks().concat(stream.getAudioTracks()))}}catch(e){vSrcS=stream}
+  }
+  var mr;
+  try{mr=new MediaRecorder(vSrcS,recMime?{mimeType:recMime,videoBitsPerSecond:(parseInt(S.camQ,10)<1000?5000000:8000000)}:{})}catch(e){try{mr=new MediaRecorder(vSrcS)}catch(x){return false}}
+  var ch=[];vLive=mr;mr._t=performance.now();mr._s={t:t,ptr:ptr,y:yCur};
+  mr.ondataavailable=function(e){if(e.data&&e.data.size)ch.push(e.data)};
+  mr.onstop=function(){
+    if(vStopping===mr)vStopping=null;
+    if(vLive===mr)vLive=null;
+    if(ch.length){var mt=mr.mimeType||recMime||"video/mp4";vBl.push({blob:new Blob(ch,{type:mt.split(";")[0]}),dur:(performance.now()-mr._t)/1000,s:mr._s,mt:mt})}
+    var q=vQ;vQ=[];q.forEach(function(f){f()});
+    if(vFin&&!vLive&&!vStopping)vAssemble();
+    audUi();
+  };
+  mr.onerror=function(){
+    if(vLive!==mr||ch.length||vBl.length||vIdx+1>=RECCANDS.length)return;
+    mr.onstop=null;mr.onerror=null;try{mr.stop()}catch(e){}
+    vLive=null;vPickMime(vIdx+1);vBlockStart();
+  };
+  mr.start(1000);
+  return true;
+}
+function vStopLive(){
+  if(!vLive)return;
+  var m=vLive;vLive=null;vStopping=m;
+  try{m.stop()}catch(e){vStopping=null}
+}
+function vWhenIdle(f){if(vStopping)vQ.push(f);else f()}
+function vTot(){var s=0,i;for(i=0;i<vBl.length;i++)s+=vBl[i].dur;if(vLive)s+=(performance.now()-vLive._t)/1000;return s}
+function vFinish(){
+  vFin=true;
+  if(vLive)vStopLive();
+  else if(!vStopping)vAssemble();
+}
+function vAssemble(){
+  vFin=false;micOff();
+  if(!vBl.length)return;
+  if(vBl.length===1){var b=vBl[0];vBl=[];showDone(b.mt,b.blob,b.dur);return}
+  if(vAuto){vAuto=false;vDoJoin();return}
+  vEdOpen(true);
 }
 function recStop(){
   if(!rec)return;
   var r=rec;rec=null;recUsed=true;$("recB").style.display="none";
   try{if(r.state!=="inactive")r.stop()}catch(e){}
   if(audMode)micOff();
+  audUi();
+  if(running&&!playing)$("pp").textContent="PLAY";
 }
 /* Apaga el micrófono por completo (en iPad, mientras esté abierto el volumen baja y no se oye el audio) */
 function micOff(){
@@ -1278,16 +1481,16 @@ function micOff(){
   }
 }
 $("recB").addEventListener("click",recStop);
-function showDone(mt){
-  if(!chunks.length)return;
+function showDone(mt,blob,segDur){
+  if(!blob)return;
   var ext=/mp4/.test(mt||"")?"mp4":"webm";
-  doneBlob=new Blob(chunks,{type:(mt||"video/"+ext).split(";")[0]});chunks=[];
+  doneBlob=blob;
   var d=new Date(),p=function(n){return(n<10?"0":"")+n};
   doneName="grabacion_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);
   $("doneV").src=doneUrl;$("doneT").textContent="Grabación lista";$("nrBox").style.display="none";$("doneE").style.display="none";
-  var seg=Math.max(1,(performance.now()-recT0)/1000);
+  var seg=Math.max(1,segDur||1);
   $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella.";
   $("done").classList.add("open");
   recSave(doneBlob,doneName,"video",seg);
