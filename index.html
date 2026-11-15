@@ -143,6 +143,7 @@ body.drag #stage{cursor:grabbing}
 #fade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#000 0,rgba(0,0,0,0) 12%,rgba(0,0,0,0) 80%,#000 100%)}
 #count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:260px;font-weight:900;color:var(--ac);background:rgba(0,0,0,.72);pointer-events:none}
 #bar{position:absolute;left:0;right:0;bottom:0;padding:16px max(20px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));background:rgba(10,10,10,.96);border-top:2px solid var(--ln);display:flex;flex-direction:column;gap:12px;transition:opacity .25s,transform .25s}
+#fPause{position:fixed;left:50%;transform:translateX(-50%);bottom:max(22px,env(safe-area-inset-bottom));z-index:45;min-height:64px;padding:0 44px;font-size:24px;font-weight:700;border-radius:32px;background:rgba(40,40,40,.92);color:#fff;border:3px solid var(--ac);box-shadow:0 4px 18px rgba(0,0,0,.6)}
 #bar .btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 #bar .btns .sp{flex:1}
 body.hide #bar{opacity:0;transform:translateY(100%);pointer-events:none}
@@ -319,6 +320,7 @@ body.hide #hud{opacity:.35}
   <button id="backBtn" aria-label="Volver a los ajustes">&#8592; Volver</button>
   <div id="hud"></div>
   <div id="count"></div>
+  <button id="fPause" style="display:none">&#9208; PAUSA</button>
   <div id="bar">
     <div id="panelSlot"></div>
     <div class="btns">
@@ -1128,8 +1130,11 @@ function audTot(){var s=0;for(var i=0;i<audBl.length;i++)s+=audBl[i].n;return s/
 function audUi(){
   var b=$("delB"),on=audMode&&rec&&!playing&&!audCur&&audBl.length>0;
   b.style.display=on?"":"none";
+  $("fPause").style.display=(audMode&&rec&&playing&&running)?"":"none";
   if(on)b.textContent="\u{1F5D1} Borrar último bloque ("+fmt(audBl[audBl.length-1].n/audRate)+")";
 }
+$("fPause").addEventListener("click",function(e){e.stopPropagation();pause()});
+$("fPause").addEventListener("pointerdown",function(e){e.stopPropagation()});
 $("delB").addEventListener("click",function(){
   if(!audMode||!rec||playing||audCur||!audBl.length)return;
   var b=audBl.pop();
