@@ -145,6 +145,7 @@ body.drag #stage{cursor:grabbing}
 #fade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#000 0,rgba(0,0,0,0) 12%,rgba(0,0,0,0) 80%,#000 100%)}
 #count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:260px;font-weight:900;color:var(--ac);background:rgba(0,0,0,.72);pointer-events:none}
 #bar{position:absolute;left:0;right:0;bottom:0;padding:16px max(20px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));background:rgba(10,10,10,.96);border-top:2px solid var(--ln);display:flex;flex-direction:column;gap:12px;transition:opacity .25s,transform .25s}
+#recWarn{position:fixed;left:50%;transform:translateX(-50%);top:max(60px,env(safe-area-inset-top));z-index:56;background:#b01818;color:#fff;font-size:20px;font-weight:700;padding:12px 18px;border-radius:14px;max-width:92vw;box-shadow:0 4px 18px rgba(0,0,0,.6)}
 #fCtl{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:45;display:flex;gap:10px;max-width:96vw}
 #fCtl button{min-height:64px;padding:0 24px;font-size:21px;font-weight:700;border-radius:32px;background:rgba(40,40,40,.94);color:#fff;border:3px solid var(--ac);box-shadow:0 4px 18px rgba(0,0,0,.6);white-space:nowrap}
 #fCtl #fDel{border-color:#ff9d00}#fCtl #fStop{border-color:#ff2d2d;background:#b01818}
@@ -340,6 +341,7 @@ body.hide #hud{opacity:.35}
   <button id="backBtn" aria-label="Volver a los ajustes">&#8592; Volver</button>
   <div id="hud"></div>
   <div id="count"></div>
+  <div id="recWarn" style="display:none"></div>
   <div id="fCtl" style="display:none"><button id="fPause">&#9208; PAUSA</button><button id="fDel">&#128465; Borrar bloque</button><button id="fBl" style="display:none">&#127902; Bloques</button><button id="fStop">&#9632; Parar</button></div>
   <div id="bar">
     <div id="panelSlot"></div>
@@ -1419,14 +1421,14 @@ function audRecStart(){
   audNode.onaudioprocess=function(e){
     var inp=e.inputBuffer.getChannelData(0),n=inp.length,pcm=new Int16Array(n),pk=0,v,a;
     for(var i=0;i<n;i++){v=inp[i];if(v>1)v=1;else if(v<-1)v=-1;a=v<0?-v:v;if(a>pk)pk=a;pcm[i]=v<0?v*32768:v*32767}
-    audLvl=pk;
+    audLvl=pk;recLast=performance.now();
     var c=audCur;if(!c)return;
     c.n+=n;c.ch.push(pcm);if(c.enc){var b=c.enc.encodeBuffer(pcm);if(b.length)c.mp3.push(b)}
   };
   audSrc.connect(audNode);
   audZ=audCtx.createGain();audZ.gain.value=0;audNode.connect(audZ);audZ.connect(audCtx.destination);
   recT0=performance.now();
-  rec={state:"recording",stop:audRecFinish};
+  rec={state:"recording",stop:audRecFinish};recMonStart();
   var au=stream.getAudioTracks()[0];
   recInfo=(audFmtUse==="mp3"?"MP3 128 kbps":"WAV 16 bits sin compresión")+" · mono · "+Math.round(audRate/1000*10)/10+" kHz"+(au&&au.label?" · micrófono: "+au.label:"");
   $("recB").style.display="";
@@ -1451,12 +1453,39 @@ function audRecFinish(){
   doneName="audio_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);$("doneV").src=doneUrl;
-  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · duración "+fmt(n/audRate)+" · "+recInfo+". Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella.";
+  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · duración "+fmt(n/audRate)+" · "+recInfo+". Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella."+recEvTxt();
   $("doneT").textContent="Audio listo";nrReset();
   recSave(doneBlob,doneName,"audio",n/audRate);
   $("done").classList.add("open");
 }
 var RECCANDS=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+/* Vigilante de la grabación: avisa en pantalla y anota la hora de cada corte (micrófono silenciado por iOS, audio suspendido, sin datos). */
+var recEv=[],recLast=0,recMon=0,recStall=false,recEnd=false;
+function recWarn(msg){
+  recEv.push(fmt(audMode?audTot():vTot())+" "+msg);
+  var b=$("recWarn");b.textContent="⚠ "+msg+" ("+recEv.length+") · toca para ocultar";b.style.display="block";
+}
+function recEvTxt(){return recEv.length?" ⚠ Se detectaron interrupciones: "+recEv.join("; ")+".":""}
+function recMonStart(){
+  recEv=[];recStall=false;recEnd=false;recLast=performance.now();clearInterval(recMon);
+  $("recWarn").style.display="none";
+  try{var tr=stream&&stream.getAudioTracks()[0];if(tr){tr.onmute=function(){if(rec)recWarn("el micrófono fue silenciado por el sistema (llamada, aviso o Siri)")};tr.onunmute=function(){}}}catch(e){}
+  recMon=setInterval(function(){
+    if(!rec){clearInterval(recMon);return}
+    var now=performance.now(),tr=stream&&stream.getAudioTracks()[0];
+    if(audMode&&audCtx&&audCtx.state!=="running"){try{audCtx.resume()}catch(e){}if(!recStall){recStall=true;recWarn("el audio se suspendió; intenté reanudarlo")}}
+    else if(audMode&&audCur&&now-recLast>1500){if(!recStall){recStall=true;recWarn("dejó de llegar audio del micrófono")}}
+    else if(!audMode&&rec.state==="recording"&&vLive&&now-recLast>4500){if(!recStall){recStall=true;recWarn("el video dejó de recibir datos")}}
+    else recStall=false;
+    if(tr&&tr.readyState==="ended"&&!recEnd){recEnd=true;recWarn("el micrófono se desconectó")}
+  },700);
+}
+$("recWarn").addEventListener("click",function(){this.style.display="none"});
+document.addEventListener("visibilitychange",function(){
+  if(!rec)return;
+  if(document.visibilityState==="hidden")recWarn("saliste de la app o se bloqueó la pantalla");
+  else if(audMode&&audCtx&&audCtx.state!=="running"){try{audCtx.resume()}catch(e){}}
+});
 /* Video por bloques: cada pausa cierra un bloque (un MP4 completo); al juntar se unen sin recodificar. */
 var vBl=[],vLive=null,vStopping=null,vQ=[],vSrcS=null,vIdx=0,vFin=false,vAuto=false;
 function vPickMime(from){
@@ -1470,7 +1499,7 @@ function recStart(){
   try{var vt=stream.getVideoTracks()[0],st=vt.getSettings(),au=stream.getAudioTracks()[0];
     recInfo="salida "+camc.width+"x"+camc.height+" (cámara original "+(st.width||"?")+"x"+(st.height||"?")+") a "+Math.round(st.frameRate||0)+" fps"+(au?" · audio "+Math.round((au.getSettings().sampleRate||0)/1000)+" kHz":"")+" · cámara: "+(vt.label||"sin nombre")}catch(e){recInfo=""}
   rec={state:"recording",stop:vFinish};
-  recT0=performance.now();
+  recT0=performance.now();recMonStart();
   if(!vBlockStart()){rec=null;return}
   $("recB").style.display="";
 }
@@ -1482,7 +1511,7 @@ function vBlockStart(){
   var mr;
   try{mr=new MediaRecorder(vSrcS,recMime?{mimeType:recMime,videoBitsPerSecond:(parseInt(S.camQ,10)<1000?5000000:8000000)}:{})}catch(e){try{mr=new MediaRecorder(vSrcS)}catch(x){return false}}
   var ch=[];vLive=mr;mr._t=performance.now();mr._s={t:t,ptr:ptr,y:yCur};
-  mr.ondataavailable=function(e){if(e.data&&e.data.size)ch.push(e.data)};
+  mr.ondataavailable=function(e){recLast=performance.now();if(e.data&&e.data.size)ch.push(e.data)};
   mr.onstop=function(){
     if(vStopping===mr)vStopping=null;
     if(vLive===mr)vLive=null;
@@ -1520,7 +1549,7 @@ function vAssemble(){
 }
 function recStop(){
   if(!rec)return;
-  var r=rec;rec=null;recUsed=true;$("recB").style.display="none";
+  var r=rec;rec=null;recUsed=true;$("recB").style.display="none";clearInterval(recMon);$("recWarn").style.display="none";
   try{if(r.state!=="inactive")r.stop()}catch(e){}
   if(audMode)micOff();
   audUi();
@@ -1547,7 +1576,7 @@ function showDone(mt,blob,segDur){
   doneUrl=URL.createObjectURL(doneBlob);
   $("doneV").src=doneUrl;$("doneT").textContent="Grabación lista";$("nrBox").style.display="none";$("doneE").style.display="none";
   var seg=Math.max(1,segDur||1);
-  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella.";
+  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella."+recEvTxt();
   $("done").classList.add("open");
   recSave(doneBlob,doneName,"video",seg);
 }
