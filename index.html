@@ -143,7 +143,10 @@ body.drag #stage{cursor:grabbing}
 #fade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#000 0,rgba(0,0,0,0) 12%,rgba(0,0,0,0) 80%,#000 100%)}
 #count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:260px;font-weight:900;color:var(--ac);background:rgba(0,0,0,.72);pointer-events:none}
 #bar{position:absolute;left:0;right:0;bottom:0;padding:16px max(20px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));background:rgba(10,10,10,.96);border-top:2px solid var(--ln);display:flex;flex-direction:column;gap:12px;transition:opacity .25s,transform .25s}
-#fPause{position:fixed;left:50%;transform:translateX(-50%);bottom:max(22px,env(safe-area-inset-bottom));z-index:45;min-height:64px;padding:0 44px;font-size:24px;font-weight:700;border-radius:32px;background:rgba(40,40,40,.92);color:#fff;border:3px solid var(--ac);box-shadow:0 4px 18px rgba(0,0,0,.6)}
+#fCtl{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:45;display:flex;gap:10px;max-width:96vw}
+#fCtl button{min-height:64px;padding:0 24px;font-size:21px;font-weight:700;border-radius:32px;background:rgba(40,40,40,.94);color:#fff;border:3px solid var(--ac);box-shadow:0 4px 18px rgba(0,0,0,.6);white-space:nowrap}
+#fCtl #fDel{border-color:#ff9d00}#fCtl #fStop{border-color:#ff2d2d;background:#b01818}
+#fCtl button:disabled{opacity:.4}
 #bar .btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 #bar .btns .sp{flex:1}
 body.hide #bar{opacity:0;transform:translateY(100%);pointer-events:none}
@@ -320,7 +323,7 @@ body.hide #hud{opacity:.35}
   <button id="backBtn" aria-label="Volver a los ajustes">&#8592; Volver</button>
   <div id="hud"></div>
   <div id="count"></div>
-  <button id="fPause" style="display:none">&#9208; PAUSA</button>
+  <div id="fCtl" style="display:none"><button id="fPause">&#9208; PAUSA</button><button id="fDel">&#128465; Borrar bloque</button><button id="fStop">&#9632; Parar</button></div>
   <div id="bar">
     <div id="panelSlot"></div>
     <div class="btns">
@@ -491,14 +494,15 @@ function play(){
   if(stream&&!rec&&!recUsed)recStart();
   if(audMode&&rec&&!audCur)audNewBlock();
   $("pp").textContent="PAUSA";audUi();
-  lockWake();showBar(false);
+  lockWake();showBar(false);audUi();
   raf=requestAnimationFrame(tick);
 }
 function pause(){
   playing=false;cancelAnimationFrame(raf);
   $("pp").textContent="PLAY";
-  if(audMode&&rec){audBlockEnd();$("pp").innerHTML="&#9679; SEGUIR GRABANDO";audUi();render()}
+  if(audMode&&rec){audBlockEnd();$("pp").innerHTML="&#9679; SEGUIR GRABANDO";render()}
   showBar(true);
+  if(audMode&&rec)audUi();
 }
 function toggle(){
   if(counting){cancelCount();return}
@@ -1130,17 +1134,29 @@ function audTot(){var s=0;for(var i=0;i<audBl.length;i++)s+=audBl[i].n;return s/
 function audUi(){
   var b=$("delB"),on=audMode&&rec&&!playing&&!audCur&&audBl.length>0;
   b.style.display=on?"":"none";
-  $("fPause").style.display=(audMode&&rec&&playing&&running)?"":"none";
+  var fc=$("fCtl"),fon=!!(audMode&&rec&&running);
+  fc.style.display=fon?"":"none";
+  if(fon){
+    $("fPause").innerHTML=playing?"&#9208; PAUSA":"&#9679; SEGUIR";
+    $("fDel").disabled=!audBl.length;
+    $("fDel").textContent="\u{1F5D1} Borrar bloque"+(audBl.length?" ("+fmt(audBl[audBl.length-1].n/audRate)+")":"");
+    fc.style.bottom=(document.body.classList.contains("hide")?22:($("bar").offsetHeight+14))+"px";
+  }
   if(on)b.textContent="\u{1F5D1} Borrar último bloque ("+fmt(audBl[audBl.length-1].n/audRate)+")";
 }
-$("fPause").addEventListener("click",function(e){e.stopPropagation();pause()});
-$("fPause").addEventListener("pointerdown",function(e){e.stopPropagation()});
-$("delB").addEventListener("click",function(){
-  if(!audMode||!rec||playing||audCur||!audBl.length)return;
+function audDelLast(){
+  if(!audMode||!rec)return;
+  if(playing)pause();
+  if(!audBl.length)return;
   var b=audBl.pop();
   ptr=b.ptr;aest.ptr=ptr;t=b.t;yCur=b.y;
   audUi();render();
-});
+}
+$("fCtl").addEventListener("pointerdown",function(e){e.stopPropagation()});
+$("fPause").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();else play()});
+$("fDel").addEventListener("click",function(e){e.stopPropagation();audDelLast()});
+$("fStop").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();recStop()});
+$("delB").addEventListener("click",audDelLast);
 function loadLame(){
   if(window.lamejs&&lamejs.Mp3Encoder)return Promise.resolve(true);
   if(lameP)return lameP;
