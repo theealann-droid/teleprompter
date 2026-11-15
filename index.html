@@ -706,6 +706,18 @@ $("bkFile").addEventListener("change",function(){
   r.readAsText(f,"UTF-8");
 });
 ensureLib();renderLib();loadCur();
+/* ---- Abrir guion desde enlace: #guion=<texto>&titulo=<nombre> ---- */
+function importarDesdeEnlace(){
+  var h=location.hash.replace(/^#/,"");if(h.indexOf("guion=")<0)return;
+  var q={};h.split("&").forEach(function(kv){var i=kv.indexOf("=");if(i>0){try{q[kv.slice(0,i)]=decodeURIComponent(kv.slice(i+1).replace(/\+/g," "))}catch(e){}}});
+  var txt=q.guion||"";if(!/\S/.test(txt))return;
+  var tit=(q.titulo||"Guion recibido").slice(0,80),c=curCh(),s=null;
+  for(var i=0;i<c.scripts.length;i++)if(c.scripts[i].title===tit&&c.scripts[i].text===txt){s=c.scripts[i];break}
+  if(!s){syncScript();s=mkScript(tit,txt);c.scripts.push(s)}
+  selectSc(c,s);
+  try{history.replaceState(null,"",location.pathname+location.search)}catch(e){location.hash=""}
+}
+importarDesdeEnlace();window.addEventListener("hashchange",importarDesdeEnlace);
 script.addEventListener("input",function(){var s=curSc();s.text=script.value;s.t=Date.now();S.script=script.value;save();updStats()});
 $("go").addEventListener("click",start);
 $("pp").addEventListener("click",toggle);
