@@ -67,6 +67,40 @@ select{flex:1;min-width:150px;min-height:48px;background:#222;color:#fff;border:
 #done .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px;overflow:auto}
 #done video{width:100%;max-height:50vh;background:#000;border-radius:12px}
 #done .ft{display:flex;gap:10px;flex-wrap:wrap}
+#aed{position:fixed;inset:0;z-index:66;display:none;flex-direction:column;gap:10px;background:#111;padding:12px;overflow:auto;color:#fff}
+#aed.open{display:flex}
+#aed>*{flex:none}
+#aed .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#aed .top h2{margin:0;font-size:22px;margin-right:auto}
+#aed button{min-height:44px;font-size:16px;padding:0 12px}
+#aed button:disabled{opacity:.4}
+#aed button.on{background:var(--ac);color:#000;border-color:var(--ac)}
+#aed select{min-height:44px;font-size:16px}
+#aeWrap{width:100%;border:2px solid var(--ln);border-radius:10px;overflow:hidden;background:#0b0b0b}
+#aeCv{display:block;touch-action:none;cursor:crosshair}
+#aeSc{width:100%}
+#aed .tr{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#aed .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px}
+#aed .ag{background:var(--pn);border:2px solid var(--ln);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+#aed .ag h3{margin:0;font-size:17px;color:var(--ac)}
+#aed .ag .bt{display:flex;gap:8px;flex-wrap:wrap}
+#aed .ag label.row{font-size:15px}
+#aed .hint{font-size:14px}
+#aeSt{min-height:22px;font-size:16px;color:#ffe600}
+details.sec{background:var(--pn);border:2px solid var(--ln);border-radius:16px;flex:none}
+details.sec>summary{list-style:none;cursor:pointer;padding:14px 16px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:"\25BE";margin-left:auto;color:var(--mt)}
+details.sec[open]>summary::after{content:"\25B4"}
+details.sec>summary em{font-style:normal;color:var(--ac);font-size:15px;font-weight:600}
+details.sec>.sb{padding:0 16px 16px;display:grid;gap:12px}
+.sec #panel,.sec #cam2,.sec #aud2{background:none;border:0;padding:0}
+.sec .btr{display:flex;gap:10px;flex-wrap:wrap}
+.sec .btr button{flex:1;min-width:150px;font-size:17px;min-height:50px}
+.mx{display:none}.mx.open{display:flex}
+.lr .mo{min-width:52px;padding:0 10px}
+#cam2.off>*:not(:first-child){display:none}
+#setup .r #go{position:sticky;bottom:0}
 #mgr{position:fixed;inset:0;z-index:65;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
 #mgr.open{display:flex}
 #mgr .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
@@ -139,14 +173,17 @@ body.hide #hud{opacity:.35}
   <div class="l">
     <h1>TELE<span>PROMPTER</span></h1>
     <div id="lib">
-      <div class="lr"><span>Canal</span><select id="chSel"></select><button id="chNew">+ Canal</button><button id="chRen">Renombrar</button><button id="chDel">Eliminar</button></div>
-      <div class="lr"><span>Guion</span><select id="scSel"></select><button id="scNew">+ Guion</button><button id="scPaste">Pegar guion</button><button id="scRen">Renombrar</button><button id="scDup">Duplicar</button><button id="scMov">Mover</button><button id="scDel">Eliminar</button></div>
+      <div class="lr"><span>Canal</span><select id="chSel"></select><button id="chNew">+ Canal</button><button id="chMore" class="mo" aria-label="Más opciones del canal">&#8943;</button></div>
+      <div class="lr mx" id="chMx"><button id="chRen">Renombrar canal</button><button id="chDel">Eliminar canal</button></div>
+      <div class="lr"><span>Guion</span><select id="scSel"></select><button id="scNew">+ Guion</button><button id="scMore" class="mo" aria-label="Más opciones del guion">&#8943;</button></div>
+      <div class="lr mx" id="scMx"><button id="scPaste">Pegar guion</button><button id="scRen">Renombrar</button><button id="scDup">Duplicar</button><button id="scMov">Mover a otro canal</button><button id="scDel">Eliminar</button></div>
+      <button id="mgOpen">Lista de guiones: abrir, ordenar, importar, eliminar</button>
     </div>
-    <div class="lr"><button id="mgOpen" style="flex:1">Lista de guiones (abrir, ordenar, importar, eliminar)</button></div>
     <textarea id="script" spellcheck="false" placeholder="Pega aquí tu guion..."></textarea>
-    <div class="hint">Marcas (línea sola): <b>[PAUSA]</b> <b>[CORTE]</b> <b>[ENFATIZAR: texto]</b>. No cuentan como palabras. <span id="hk1"></span></div>
+    <div class="hint">Marcas (línea sola): <b>[PAUSA]</b> <b>[CORTE]</b> <b>[ENFATIZAR: texto]</b>. No cuentan como palabras. <span id="hk1" style="display:none"></span></div>
   </div>
   <div class="r">
+    <details class="sec" open><summary>Lectura</summary><div class="sb">
     <div id="panelHome">
       <div id="panel">
         <label class="row">Velocidad<input type="range" id="wpm" min="80" max="250" step="5"><output id="wpmO"></output></label>
@@ -158,6 +195,8 @@ body.hide #hud{opacity:.35}
         <div id="micst"></div>
       </div>
     </div>
+    </div></details>
+    <details class="sec" id="recSec"><summary>Grabación y audio <em id="recSum"></em></summary><div class="sb">
     <div id="aud2">
       <div class="tg"><span>Grabar solo audio (sin cámara)</span><button id="audT">NO</button></div>
       <div id="audOpts" class="sgr"><span>Formato de audio</span><div class="seg" data-k="audFmt"><button data-v="mp3">MP3</button><button data-v="wav">WAV (sin pérdida)</button></div></div>
@@ -173,13 +212,18 @@ body.hide #hud{opacity:.35}
       <div class="tg"><span>Vista previa en espejo</span><button id="camM">SÍ</button></div>
       <div id="camst" class="hint"></div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button id="open">Abrir guion (.txt)</button><button id="saveTxt">Guardar guion (.txt)</button></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button id="bkExp">Copia de seguridad</button><button id="bkImp">Restaurar copia</button></div>
+    <button id="aeOpenFile">Abrir un audio en el editor</button>
+    <input type="file" id="aeFile" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.webm,.mp4" style="display:none">
+    </div></details>
+    <details class="sec"><summary>Archivos y copias</summary><div class="sb">
+    <div class="btr"><button id="open">Abrir guion (.txt)</button><button id="saveTxt">Guardar guion (.txt)</button></div>
+    <div class="btr"><button id="bkExp">Copia de seguridad</button><button id="bkImp">Restaurar copia</button></div>
     <input type="file" id="file" accept=".txt,text/plain" multiple style="display:none">
     <input type="file" id="bkFile" accept=".json,application/json" style="display:none">
     <div class="hint">Los guiones se guardan en este dispositivo. Haz una copia de seguridad de vez en cuando.</div>
     <button id="keysBtn">Personalizar botones</button>
     <div class="hint">Atajos: <span id="hk2"></span></div>
+    </div></details>
     <div id="stats"></div>
     <button class="pri" id="go" style="min-height:76px;font-size:28px">INICIAR</button>
   </div>
@@ -201,6 +245,34 @@ body.hide #hud{opacity:.35}
     <div class="ft"><button id="dlgC">Cancelar</button><button class="pri" id="dlgO">Aceptar</button></div>
   </div>
 </div>
+<div id="aed">
+  <div class="top"><h2>Editor de audio</h2><span class="hint" id="aeInfo"></span>
+    <button id="aeUndo">&#8630; Deshacer</button><button id="aeRedo">&#8631; Rehacer</button>
+    <select id="aeFmt"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
+    <button id="aeCancel">Cancelar</button><button class="pri" id="aeOk">Aplicar y volver</button></div>
+  <div id="aeWrap"><canvas id="aeCv"></canvas></div>
+  <input type="range" id="aeSc" min="0" max="0" step="0.01" value="0">
+  <div class="tr"><button id="aeHome">&#9198;</button><button class="pri" id="aePlay">&#9654; Reproducir</button><button id="aeLoop">Repetir selección</button>
+    <button id="aeZo">&#8722; Zoom</button><button id="aeZi">+ Zoom</button><button id="aeFit">Ver todo</button><button id="aeSelZ">Zoom a selección</button><button id="aeSelAll">Seleccionar todo</button>
+    <span class="hint" id="aeSelI"></span></div>
+  <div id="aeSt"></div>
+  <div class="grid">
+    <div class="ag"><h3>Cortar</h3><div class="bt"><button id="aeCut">Cortar selección</button><button id="aeCrop">Dejar solo selección</button><button id="aeMute">Silenciar selección</button><button id="aeIns">Insertar 0,5 s de silencio</button></div>
+      <div class="hint">Selecciona arrastrando sobre la onda (puedes mover los bordes). Atajos: Espacio = reproducir, Supr = cortar, Ctrl+Z = deshacer.</div></div>
+    <div class="ag"><h3>Quitar silencios</h3>
+      <label class="row">Umbral<input type="range" id="aeTh" min="-60" max="-20" step="1" value="-38"><output id="aeThO"></output></label>
+      <label class="row">Duración mínima<input type="range" id="aeMin" min="0.2" max="3" step="0.05" value="0.6"><output id="aeMinO"></output></label>
+      <label class="row">Margen que se conserva<input type="range" id="aePad" min="0" max="0.5" step="0.05" value="0.15"><output id="aePadO"></output></label>
+      <div class="bt"><button id="aeSilShow">Marcar silencios</button><button id="aeSilCut">Quitar silencios</button></div></div>
+    <div class="ag"><h3>Mejorar el audio</h3>
+      <label class="row">Reducir ruido (IA)<input type="range" id="aeNk" min="30" max="100" step="5" value="85"><output id="aeNkO"></output></label>
+      <div class="bt"><button id="aeNoise">Reducir ruido</button><button id="aeHpf">Quitar graves/retumbo</button><button id="aeComp">Igualar volumen (compresor)</button></div></div>
+    <div class="ag"><h3>Volumen</h3>
+      <label class="row">Ganancia<input type="range" id="aeG" min="-12" max="12" step="1" value="3"><output id="aeGO"></output></label>
+      <div class="bt"><button id="aeGo">Aplicar ganancia</button><button id="aeNorm">Normalizar (pico −1 dB)</button><button id="aeLoud">Volumen de voz para YouTube</button><button id="aeFi">Fundido de entrada</button><button id="aeFo">Fundido de salida</button></div>
+      <div class="hint">Sin selección, todo actúa sobre el audio completo.</div></div>
+  </div>
+</div>
 <div id="mgr">
   <div class="box">
     <h2 style="margin:0;font-size:22px">Lista de guiones</h2>
@@ -215,8 +287,14 @@ body.hide #hud{opacity:.35}
   <div class="box">
     <h2 id="doneT" style="margin:0;font-size:22px">Grabación lista</h2>
     <video id="doneV" controls playsinline></video>
+    <div id="nrBox" style="display:none;background:#222;border:2px solid var(--ln);border-radius:12px;padding:12px;gap:10px;flex-direction:column">
+      <div class="tg"><span>Reducir ruido (IA · RNNoise)</span><button id="nrGo">LIMPIAR</button></div>
+      <label class="row">Intensidad<input type="range" id="nrK" min="30" max="100" step="5" value="85"><output id="nrKO">85%</output></label>
+      <div class="seg" id="nrAB" style="display:none"><button data-v="o">Original</button><button data-v="c">Limpio</button></div>
+      <div class="hint" id="nrSt">Quita ruido de fondo (ventilador, aire, zumbido, teclado) conservando tu voz. Se procesa en tu dispositivo y el original se conserva para comparar.</div>
+    </div>
     <div class="hint" id="doneI"></div>
-    <div class="ft"><button class="pri" id="doneS">Guardar / Compartir</button><button id="doneD">Descargar</button><button id="doneC">Cerrar</button></div>
+    <div class="ft"><button class="pri" id="doneS">Guardar / Compartir</button><button id="doneE" style="display:none">Editar</button><button id="doneD">Descargar</button><button id="doneC">Cerrar</button></div>
   </div>
 </div>
 <div id="run">
@@ -924,6 +1002,8 @@ function camUi(){
   $("camT").textContent=S.cam?"SÍ":"NO";$("camT").classList.toggle("on",S.cam);
   $("audT").textContent=S.aud?"SÍ":"NO";$("audT").classList.toggle("on",S.aud);
   $("audOpts").style.display=S.aud?"":"none";
+  $("recSum").textContent=S.aud?"· Solo audio "+(S.audFmt==="wav"?"WAV":"MP3"):S.cam?"· Video "+S.camQ+"p "+(S.camFmt==="v"?"vertical":S.camFmt==="s"?"cuadrado":"horizontal"):"· Apagada";
+  $("cam2").classList.toggle("off",!S.cam);
   $("audst").textContent=S.aud?"Al pulsar INICIAR se abre el micrófono; la grabación empieza con el botón verde (cuenta atrás de 3 s). Al terminar podrás guardar o compartir el archivo "+(S.audFmt==="wav"?"WAV (calidad máxima, pesa más)":"MP3 (128 kbps, pesa poco)")+". Mono.":"";
   $("camM").textContent=S.camMir?"SÍ":"NO";$("camM").classList.toggle("on",S.camMir);
   $("camG").textContent=S.camGrid?"SÍ":"NO";$("camG").classList.toggle("on",S.camGrid);
@@ -1004,7 +1084,7 @@ function camOpen(cb){
     cb();
   }).catch(function(e){camFail("No pude abrir la cámara o el micrófono: "+(e&&e.name?e.name:e))});
 }
-function camFail(m){stop();$("camst").textContent=m}
+function camFail(m){stop();(S.aud?$("audst"):$("camst")).textContent=m;$("recSec").open=true}
 function camClose(){
   if(stream){stream.getTracks().forEach(function(x){x.stop()});stream=null}
   clearInterval(drawRaf);$("rotB").style.display="none";$("gridB").style.display="none";$("swB").style.display="none";
@@ -1054,7 +1134,7 @@ function audRecStart(){
     var inp=e.inputBuffer.getChannelData(0),n=inp.length,pcm=new Int16Array(n),pk=0,v,a;
     for(var i=0;i<n;i++){v=inp[i];if(v>1)v=1;else if(v<-1)v=-1;a=v<0?-v:v;if(a>pk)pk=a;pcm[i]=v<0?v*32768:v*32767}
     audLvl=pk;audN+=n;
-    if(audEnc){var b=audEnc.encodeBuffer(pcm);if(b.length)audMp3.push(b)}else audChunks.push(pcm);
+    audChunks.push(pcm);if(audEnc){var b=audEnc.encodeBuffer(pcm);if(b.length)audMp3.push(b)}
   };
   audSrc.connect(audNode);
   audZ=audCtx.createGain();audZ.gain.value=0;audNode.connect(audZ);audZ.connect(audCtx.destination);
@@ -1075,13 +1155,13 @@ function audRecFinish(){
     h.setUint32(24,audRate,true);h.setUint32(28,audRate*2,true);h.setUint16(32,2,true);h.setUint16(34,16,true);w(36,"data");h.setUint32(40,L,true);
     parts=[h.buffer].concat(audChunks);type="audio/wav";ext="wav";
   }
-  doneBlob=new Blob(parts,{type:type});audChunks=[];audMp3=[];audEnc=null;
+  doneBlob=new Blob(parts,{type:type});nrPcm=audChunks;nrRate=audRate;nrExt=ext;audChunks=[];audMp3=[];audEnc=null;origBlob=doneBlob;cleanBlob=null;
   var d=new Date(),p=function(x){return(x<10?"0":"")+x};
   doneName="audio_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);$("doneV").src=doneUrl;
   $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · duración "+fmt(n/audRate)+" · "+recInfo+". Si cierras esto sin guardar, se pierde.";
-  $("doneT").textContent="Audio listo";
+  $("doneT").textContent="Audio listo";nrReset();
   $("done").classList.add("open");
 }
 var RECCANDS=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
@@ -1122,14 +1202,14 @@ function showDone(mt){
   doneName="grabacion_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);
-  $("doneV").src=doneUrl;$("doneT").textContent="Grabación lista";
+  $("doneV").src=doneUrl;$("doneT").textContent="Grabación lista";$("nrBox").style.display="none";$("doneE").style.display="none";
   var seg=Math.max(1,(performance.now()-recT0)/1000);
   $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Si cierras esto sin guardar, se pierde.";
   $("done").classList.add("open");
 }
 function closeDone(){
   $("done").classList.remove("open");$("doneV").pause();$("doneV").removeAttribute("src");
-  if(doneUrl){URL.revokeObjectURL(doneUrl);doneUrl=""}doneBlob=null;
+  if(doneUrl){URL.revokeObjectURL(doneUrl);doneUrl=""}doneBlob=null;nrPcm=null;origBlob=null;cleanBlob=null;$("nrBox").style.display="none";
 }
 $("doneC").addEventListener("click",closeDone);
 $("doneD").addEventListener("click",function(){
@@ -1142,6 +1222,421 @@ $("doneS").addEventListener("click",function(){
   if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f]}).catch(function(){});
   else $("doneD").click();
 });
+
+/* ---- Reducir ruido (RNNoise, red neuronal, en el dispositivo) ---- */
+var nrPcm=null,nrRate=48000,nrExt="wav",origBlob=null,cleanBlob=null,rnMod=null,rnP=null,nrBusy=false,nrVer="o",RN_LAT=960;
+function nrReset(){
+  $("doneE").style.display="";nrVer="o";$("nrBox").style.display="flex";$("nrAB").style.display="none";$("nrGo").textContent="LIMPIAR";
+  $("nrSt").textContent="Quita ruido de fondo (ventilador, aire, zumbido, teclado) conservando tu voz. Se procesa en tu dispositivo y el original se conserva para comparar.";
+}
+function loadRn(){
+  if(rnMod)return Promise.resolve(true);
+  if(rnP)return rnP;
+  rnP=new Promise(function(res){
+    var sc=document.createElement("script");sc.src="rnnoise.js";
+    sc.onload=function(){
+      try{var m=window.createRNNWasmModuleSync();Promise.resolve(m.ready||m).then(function(){rnMod=m;res(true)},function(){rnP=null;res(false)})}
+      catch(e){rnP=null;res(false)}
+    };
+    sc.onerror=function(){rnP=null;res(false)};
+    document.head.appendChild(sc);
+  });
+  return rnP;
+}
+function pcmToFloat(ch){
+  var n=0,i,j,o,c;for(i=0;i<ch.length;i++)n+=ch[i].length;
+  var f=new Float32Array(n);o=0;
+  for(i=0;i<ch.length;i++){c=ch[i];for(j=0;j<c.length;j++)f[o++]=c[j]/32768}
+  return f;
+}
+function resampleF(f,from,to){
+  if(from===to)return Promise.resolve(f);
+  var oc=new OfflineAudioContext(1,Math.ceil(f.length*to/from),to),b=oc.createBuffer(1,f.length,from);
+  b.copyToChannel(f,0);var s=oc.createBufferSource();s.buffer=b;s.connect(oc.destination);s.start();
+  return oc.startRendering().then(function(r){return r.getChannelData(0)});
+}
+/* f: Float32 a 48 kHz; k: 0..1 mezcla de senal limpia. Devuelve Promise<Float32Array> */
+function rnRun(f,k,prog){
+  return new Promise(function(res,rej){
+    var m=rnMod,N=f.length,LAT=RN_LAT,frames=Math.ceil((N+LAT)/480),st,inP,outP;
+    try{st=m._rnnoise_create(0);inP=m._malloc(480*4);outP=m._malloc(480*4)}catch(e){rej(e);return}
+    var out=new Float32Array(N),fr=0;
+    function step(){
+      var H=m.HEAPF32,ii=inP>>2,oi=outP>>2,end=Math.min(frames,fr+1500),i,base,idx,v;
+      for(;fr<end;fr++){
+        base=fr*480;
+        for(i=0;i<480;i++){idx=base+i;H[ii+i]=idx<N?f[idx]*32768:0}
+        m._rnnoise_process_frame(st,outP,inP);
+        for(i=0;i<480;i++){
+          idx=base+i-LAT;
+          if(idx>=0&&idx<N){v=H[oi+i]/32768;out[idx]=f[idx]*(1-k)+v*k}
+        }
+      }
+      if(prog)prog(fr/frames);
+      if(fr<frames)setTimeout(step,0);
+      else{try{m._rnnoise_destroy(st);m._free(inP);m._free(outP)}catch(e){}res(out)}
+    }
+    step();
+  });
+}
+function encFloat(f,rate,ext){
+  var n=f.length,pcm=new Int16Array(n),i,v;
+  for(i=0;i<n;i++){v=f[i];if(v>1)v=1;else if(v<-1)v=-1;pcm[i]=v<0?v*32768:v*32767}
+  if(ext==="mp3"&&window.lamejs){
+    var e=new lamejs.Mp3Encoder(1,rate,128),parts=[],B=1152*10,b;
+    for(i=0;i<n;i+=B){b=e.encodeBuffer(pcm.subarray(i,i+B));if(b.length)parts.push(b)}
+    b=e.flush();if(b.length)parts.push(b);
+    return new Blob(parts,{type:"audio/mpeg"});
+  }
+  var h=new DataView(new ArrayBuffer(44)),L=n*2,w=function(o,t){for(var j=0;j<t.length;j++)h.setUint8(o+j,t.charCodeAt(j))};
+  w(0,"RIFF");h.setUint32(4,36+L,true);w(8,"WAVE");w(12,"fmt ");h.setUint32(16,16,true);h.setUint16(20,1,true);h.setUint16(22,1,true);
+  h.setUint32(24,rate,true);h.setUint32(28,rate*2,true);h.setUint16(32,2,true);h.setUint16(34,16,true);w(36,"data");h.setUint32(40,L,true);
+  return new Blob([h.buffer,pcm],{type:"audio/wav"});
+}
+function nrShow(v){
+  var V=$("doneV"),t=V.currentTime||0,pl=!V.paused;
+  nrVer=v;doneBlob=v==="c"?cleanBlob:origBlob;
+  var base=doneName.replace(/_limpio(?=\.[^.]+$)/,"");
+  doneName=v==="c"?base.replace(/(\.[^.]+)$/,"_limpio$1"):base;
+  if(doneUrl)URL.revokeObjectURL(doneUrl);
+  doneUrl=URL.createObjectURL(doneBlob);V.src=doneUrl;
+  V.onloadedmetadata=function(){try{V.currentTime=t}catch(e){}if(pl)V.play().catch(function(){})};
+  var bs=$("nrAB").children;for(var i=0;i<bs.length;i++)bs[i].classList.toggle("on",bs[i].getAttribute("data-v")===v);
+}
+$("nrK").addEventListener("input",function(){$("nrKO").textContent=this.value+"%"});
+$("nrAB").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("button[data-v]");if(b&&cleanBlob)nrShow(b.getAttribute("data-v"))});
+$("nrGo").addEventListener("click",function(){
+  if(nrBusy||!nrPcm)return;nrBusy=true;var st=$("nrSt"),go=$("nrGo"),k=(+$("nrK").value)/100;
+  go.disabled=true;st.textContent="Cargando el motor de reducción de ruido…";
+  var pl=nrExt==="mp3"?loadLame():Promise.resolve(true);
+  Promise.all([loadRn(),pl]).then(function(r){
+    if(!r[0])throw new Error("No pude cargar el motor (¿sin conexión la primera vez?).");
+    var f=pcmToFloat(nrPcm);
+    return resampleF(f,nrRate,48000).then(function(f48){
+      return rnRun(f48,k,function(p){st.textContent="Limpiando… "+Math.round(p*100)+"%"});
+    }).then(function(o){return resampleF(o,48000,nrRate)});
+  }).then(function(o){
+    cleanBlob=encFloat(o,nrRate,nrExt);
+    if(origBlob)nrShow("c");
+    $("nrAB").style.display="flex";go.textContent="VOLVER A LIMPIAR";
+    st.textContent="Listo. Alterna Original / Limpio para comparar y guarda el que prefieras. Si suena demasiado seco o se come tu voz, baja la intensidad y limpia otra vez.";
+  }).catch(function(e){st.textContent="No se pudo limpiar: "+(e&&e.message?e.message:e)}).then(function(){nrBusy=false;go.disabled=false});
+});
+
+/* ---- Editor de audio ---- */
+var AE={f:null,sr:48000,sel:null,cur:0,vs:0,pps:60,und:[],red:[],pk:null,ctx:null,src:null,buf:null,playing:false,t0:0,off:0,endT:0,regs:[],tm:0,busy:false,drag:null};
+var AEB=256;
+function aeDur(){return AE.f?AE.f.length/AE.sr:0}
+function aeT(t){t=Math.max(0,t);var m=Math.floor(t/60),s=t-m*60;return m+":"+(s<10?"0":"")+s.toFixed(1)}
+function aeMsg(t){$("aeSt").textContent=t}
+function aePeaks(){
+  var f=AE.f,n=f.length,nb=Math.ceil(n/AEB),pk=new Float32Array(nb*2),i,j,mn,mx,v,e;
+  for(i=0;i<nb;i++){mn=1;mx=-1;e=Math.min(n,(i+1)*AEB);for(j=i*AEB;j<e;j++){v=f[j];if(v<mn)mn=v;if(v>mx)mx=v}pk[2*i]=mn;pk[2*i+1]=mx}
+  AE.pk=pk;AE.buf=null;
+}
+function aeViewW(){return Math.max(200,$("aeWrap").clientWidth)}
+function aeClamp(){
+  var W=aeViewW(),d=aeDur(),minP=Math.min(W/Math.max(d,0.01),400);
+  AE.pps=Math.min(4000,Math.max(minP*0.999,AE.pps));
+  AE.vs=Math.max(0,Math.min(AE.vs,Math.max(0,d-W/AE.pps)));
+  AE.cur=Math.max(0,Math.min(AE.cur,d));
+}
+function aeDraw(){
+  if(!AE.f||!$("aed").classList.contains("open"))return;
+  aeClamp();
+  var cv=$("aeCv"),W=aeViewW(),H=220,dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+"px";cv.style.height=H+"px"}
+  var c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);
+  c.fillStyle="#0b0b0b";c.fillRect(0,0,W,H);
+  var sr=AE.sr,pps=AE.pps,f=AE.f,n=f.length,pk=AE.pk,top=24,mid=top+(H-top)/2,half=(H-top)/2-3,x,i;
+  var X=function(t){return(t-AE.vs)*pps};
+  /* silencios detectados */
+  c.fillStyle="rgba(255,60,60,.28)";
+  AE.regs.forEach(function(r){var a=X(r[0]/sr),b=X(r[1]/sr);if(b>0&&a<W)c.fillRect(a,top,b-a,H-top)});
+  /* seleccion */
+  if(AE.sel){var a=X(AE.sel.a),b=X(AE.sel.b);c.fillStyle="rgba(255,230,0,.22)";c.fillRect(a,top,b-a,H-top);c.fillStyle="#ffe600";c.fillRect(a-1,top,2,H-top);c.fillRect(b-1,top,2,H-top)}
+  /* linea central */
+  c.fillStyle="#333";c.fillRect(0,mid,W,1);
+  /* onda */
+  c.fillStyle="#46d37a";
+  for(x=0;x<W;x++){
+    var s0=Math.floor((AE.vs+x/pps)*sr),s1=Math.floor((AE.vs+(x+1)/pps)*sr),mn=1,mx=-1,v;
+    if(s0>=n)break;
+    if(s1-s0>=AEB*2){
+      var b0=Math.floor(s0/AEB),b1=Math.min(pk.length/2,Math.ceil(s1/AEB));
+      for(i=b0;i<b1;i++){if(pk[2*i]<mn)mn=pk[2*i];if(pk[2*i+1]>mx)mx=pk[2*i+1]}
+    }else{
+      var e=Math.min(n,Math.max(s1,s0+1));
+      for(i=s0;i<e;i++){v=f[i];if(v<mn)mn=v;if(v>mx)mx=v}
+    }
+    if(mx<mn)continue;
+    var y0=mid-Math.min(1,mx)*half,y1=mid-Math.max(-1,mn)*half;
+    c.fillRect(x,y0,1,Math.max(1,y1-y0));
+  }
+  /* regla */
+  c.fillStyle="#161616";c.fillRect(0,0,W,top);
+  var steps=[0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10,15,30,60,120,300,600,1800],st=steps[steps.length-1];
+  for(i=0;i<steps.length;i++)if(steps[i]*pps>=80){st=steps[i];break}
+  c.fillStyle="#aaa";c.font="12px sans-serif";c.textBaseline="middle";c.strokeStyle="#555";
+  for(var t=Math.ceil(AE.vs/st)*st;t<=AE.vs+W/pps;t+=st){x=X(t);c.fillRect(x,top-8,1,8);c.fillText(aeT(t),x+4,top/2-2)}
+  /* cursor */
+  var cx=X(AE.cur);if(cx>=0&&cx<=W){c.fillStyle="#fff";c.fillRect(cx-1,0,2,H)}
+}
+function aeUi(){
+  var d=aeDur();
+  $("aeInfo").textContent="Duración "+aeT(d)+" · "+(d*AE.sr*2/1048576).toFixed(1)+" MB (WAV)";
+  $("aeSelI").textContent=AE.sel?"Selección "+aeT(AE.sel.a)+" – "+aeT(AE.sel.b)+" ("+(AE.sel.b-AE.sel.a).toFixed(2)+" s)":"Cursor "+aeT(AE.cur)+" · sin selección: las herramientas actúan sobre TODO el audio";
+  $("aeUndo").disabled=!AE.und.length;$("aeRedo").disabled=!AE.red.length;
+  var W=aeViewW(),mx=Math.max(0,d-W/AE.pps),sc=$("aeSc");sc.max=mx.toFixed(2);sc.value=AE.vs;sc.style.visibility=mx>0.05?"visible":"hidden";
+}
+function aeRefresh(){aeClamp();aeUi();aeDraw()}
+function aeStop(){
+  if(AE.tm){clearInterval(AE.tm);AE.tm=0}
+  if(AE.src){try{AE.src.onended=null;AE.src.stop()}catch(e){}try{AE.src.disconnect()}catch(e){}AE.src=null}
+  AE.playing=false;$("aePlay").innerHTML="&#9654; Reproducir";
+}
+function aePlay(){
+  if(AE.playing){aeStop();return}
+  var f=AE.f,sr=AE.sr,d=aeDur(),a=AE.sel?AE.sel.a:AE.cur,z=AE.sel?AE.sel.b:d;
+  if(!AE.sel&&a>=d-0.05)a=0;
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(!AE.ctx)AE.ctx=new AC();
+  try{AE.ctx.resume()}catch(e){}
+  if(!AE.buf){AE.buf=AE.ctx.createBuffer(1,f.length,sr);AE.buf.copyToChannel(f,0)}
+  var s=AE.ctx.createBufferSource();s.buffer=AE.buf;s.connect(AE.ctx.destination);
+  s.start(0,a,Math.max(0.01,z-a));AE.src=s;AE.t0=AE.ctx.currentTime;AE.off=a;AE.endT=z;AE.playing=true;
+  $("aePlay").innerHTML="&#9632; Pausa";
+  AE.tm=setInterval(function(){
+    var p=AE.off+(AE.ctx.currentTime-AE.t0);
+    if(p>=AE.endT-0.005){
+      if($("aeLoop").classList.contains("on")&&AE.sel){aeStop();AE.cur=AE.sel.a;aePlay();return}
+      var keep=AE.sel;aeStop();AE.cur=AE.sel?AE.sel.a:AE.endT;aeRefresh();return;
+    }
+    AE.cur=p;var W=aeViewW();
+    if(p>AE.vs+W/AE.pps*0.92||p<AE.vs)AE.vs=Math.max(0,p-W/AE.pps*0.1);
+    aeUi();aeDraw();
+  },40);
+}
+function aeCommit(f,keepSel){
+  aeStop();AE.und.push(AE.f);if(AE.und.length>12)AE.und.shift();
+  AE.red=[];AE.f=f;if(!keepSel)AE.sel=null;AE.regs=[];
+  if(AE.sel&&AE.sel.b>f.length/AE.sr)AE.sel=null;
+  aePeaks();aeRefresh();
+}
+function aeUndo(){if(!AE.und.length)return;aeStop();AE.red.push(AE.f);AE.f=AE.und.pop();AE.sel=null;AE.regs=[];aePeaks();aeRefresh();aeMsg("Deshecho.")}
+function aeRedo(){if(!AE.red.length)return;aeStop();AE.und.push(AE.f);AE.f=AE.red.pop();AE.sel=null;AE.regs=[];aePeaks();aeRefresh();aeMsg("Rehecho.")}
+function aeRange(){
+  var n=AE.f.length,sr=AE.sr;
+  if(AE.sel&&AE.sel.b-AE.sel.a>0.005)return[Math.max(0,Math.round(AE.sel.a*sr)),Math.min(n,Math.round(AE.sel.b*sr))];
+  return[0,n];
+}
+function aeNeedSel(){if(AE.sel&&AE.sel.b-AE.sel.a>0.005)return true;aeMsg("Primero selecciona un fragmento arrastrando sobre la onda.");return false}
+function aeJoinFade(o,p){var k=64,i;for(i=0;i<k;i++){if(p+i<o.length)o[p+i]*=i/k;if(p-1-i>=0)o[p-1-i]*=i/k}}
+function aeCut(){
+  if(!aeNeedSel())return;var r=aeRange(),f=AE.f,o=new Float32Array(f.length-(r[1]-r[0]));
+  o.set(f.subarray(0,r[0]));o.set(f.subarray(r[1]),r[0]);aeJoinFade(o,r[0]);
+  AE.cur=r[0]/AE.sr;aeCommit(o);aeMsg("Fragmento cortado ("+((r[1]-r[0])/AE.sr).toFixed(2)+" s).");
+}
+function aeCrop(){
+  if(!aeNeedSel())return;var r=aeRange();
+  aeCommit(AE.f.slice(r[0],r[1]));AE.cur=0;AE.vs=0;aeMsg("Recortado: solo queda la selección.");
+}
+function aeMute(){
+  if(!aeNeedSel())return;var r=aeRange(),o=AE.f.slice(),i,k=240;
+  for(i=r[0];i<r[1];i++){var g=Math.min(1,(i-r[0])/k,(r[1]-i)/k);o[i]*=1-Math.max(0,g)}
+  aeCommit(o,true);aeMsg("Fragmento silenciado.");
+}
+function aeInsSil(){
+  var p=Math.round((AE.sel?AE.sel.a:AE.cur)*AE.sr),L=Math.round(0.5*AE.sr),f=AE.f,o=new Float32Array(f.length+L);
+  o.set(f.subarray(0,p));o.set(f.subarray(p),p+L);aeCommit(o);aeMsg("Insertado 0,5 s de silencio.");
+}
+function aeSoft(x){var a=x<0?-x:x;if(a<=0.7)return x;var y=0.7+0.29*Math.tanh((a-0.7)/0.29);return x<0?-y:y}
+function aeGainApply(g,label){
+  var r=aeRange(),o=AE.f.slice(),i;
+  for(i=r[0];i<r[1];i++)o[i]=aeSoft(o[i]*g);
+  aeCommit(o,true);aeMsg(label);
+}
+function aeGainDb(){var db=+$("aeG").value;aeGainApply(Math.pow(10,db/20),"Volumen "+(db>0?"+":"")+db+" dB aplicado.")}
+function aeNorm(){
+  var r=aeRange(),f=AE.f,mx=0,i,a;
+  for(i=r[0];i<r[1];i++){a=f[i]<0?-f[i]:f[i];if(a>mx)mx=a}
+  if(mx<1e-4){aeMsg("No hay señal que normalizar.");return}
+  var g=0.891/mx;aeGainApply(g,"Normalizado: pico a −1 dB (ganancia "+(20*Math.log10(g)).toFixed(1)+" dB).");
+}
+function aeLoud(){
+  var r=aeRange(),f=AE.f,B=Math.round(AE.sr*0.05),sum=0,cnt=0,i,j,e,x;
+  for(i=r[0];i<r[1];i+=B){e=Math.min(r[1],i+B);x=0;for(j=i;j<e;j++)x+=f[j]*f[j];x/=Math.max(1,e-i);if(x>2.5e-5){sum+=x;cnt++}}
+  if(!cnt){aeMsg("No encuentro voz para medir.");return}
+  var db=10*Math.log10(sum/cnt),g=Math.pow(10,(-17-db)/20);
+  aeGainApply(g,"Volumen de voz ajustado de "+db.toFixed(1)+" a −17 dB RMS (nivel cómodo para YouTube), con limitador suave.");
+}
+function aeFade(inn){
+  var r=aeRange(),o=AE.f.slice(),L=Math.min(Math.round(AE.sr*0.5),Math.floor((r[1]-r[0])/2)),i;
+  if(L<2){aeMsg("El fragmento es muy corto para un fundido.");return}
+  for(i=0;i<L;i++){if(inn)o[r[0]+i]*=i/L;else o[r[1]-1-i]*=i/L}
+  aeCommit(o,true);aeMsg(inn?"Fundido de entrada (0,5 s).":"Fundido de salida (0,5 s).");
+}
+function aeSilFind(){
+  var f=AE.f,sr=AE.sr,B=Math.round(sr*0.01),thr=Math.pow(10,(+$("aeTh").value)/20),minL=+$("aeMin").value,pad=Math.round(+$("aePad").value*sr),r=aeRange(),regs=[],run=-1,nb=Math.floor((r[1]-r[0])/B),b,s,e,i,x,q,len;
+  for(b=0;b<=nb;b++){
+    s=r[0]+b*B;e=Math.min(r[1],s+B);x=0;for(i=s;i<e;i++)x+=f[i]*f[i];
+    q=b<nb&&e>s&&Math.sqrt(x/(e-s))<thr;
+    if(q){if(run<0)run=s}
+    else if(run>=0){len=(s-run)/sr;if(len>=minL&&s-pad>run+pad)regs.push([run+pad,s-pad]);run=-1}
+  }
+  return regs;
+}
+function aeSilShow(){
+  AE.regs=aeSilFind();var t=0;AE.regs.forEach(function(r){t+=r[1]-r[0]});
+  aeDraw();aeMsg(AE.regs.length?AE.regs.length+" silencios marcados en rojo ("+(t/AE.sr).toFixed(1)+" s en total). Pulsa «Quitar silencios» para eliminarlos.":"No hay silencios con esos ajustes. Prueba un umbral más alto (p. ej. −35 dB) o una duración menor.");
+}
+function aeSilCut(){
+  var regs=aeSilFind();if(!regs.length){aeMsg("No hay silencios con esos ajustes.");return}
+  var f=AE.f,tot=0,i;regs.forEach(function(r){tot+=r[1]-r[0]});
+  var o=new Float32Array(f.length-tot),p=0,q=0,joins=[];
+  regs.forEach(function(r){o.set(f.subarray(q,r[0]),p);p+=r[0]-q;joins.push(p);q=r[1]});
+  o.set(f.subarray(q),p);joins.forEach(function(j){aeJoinFade(o,j)});
+  aeCommit(o);aeMsg("Quitados "+regs.length+" silencios ("+(tot/AE.sr).toFixed(1)+" s). Si suena muy cortado, deshaz y sube el margen.");
+}
+function aePaste(o,r,seg){o.set(seg.length>r[1]-r[0]?seg.subarray(0,r[1]-r[0]):seg,r[0])}
+function aeOffline(build,label){
+  if(AE.busy)return;AE.busy=true;aeMsg(label+"…");
+  var r=aeRange(),sr=AE.sr,n=r[1]-r[0],oc=new OfflineAudioContext(1,n,sr),b=oc.createBuffer(1,n,sr);
+  b.copyToChannel(AE.f.slice(r[0],r[1]),0);
+  var s=oc.createBufferSource();s.buffer=b;build(oc,s);s.start();
+  oc.startRendering().then(function(res){var o=AE.f.slice();aePaste(o,r,res.getChannelData(0));aeCommit(o,true);aeMsg(label+": listo.")})
+   .catch(function(e){aeMsg("No se pudo aplicar: "+(e&&e.message?e.message:e))}).then(function(){AE.busy=false});
+}
+function aeHpf(){aeOffline(function(oc,s){var h=oc.createBiquadFilter();h.type="highpass";h.frequency.value=80;h.Q.value=0.7;s.connect(h);h.connect(oc.destination)},"Filtro de graves 80 Hz (quita golpes y retumbo)")}
+function aeComp(){aeOffline(function(oc,s){var c=oc.createDynamicsCompressor();c.threshold.value=-26;c.knee.value=12;c.ratio.value=3;c.attack.value=0.006;c.release.value=0.18;var g=oc.createGain();g.gain.value=1.5;s.connect(c);c.connect(g);g.connect(oc.destination)},"Compresor de voz (iguala el volumen)")}
+function aeNoise(){
+  if(AE.busy)return;AE.busy=true;var k=(+$("aeNk").value)/100,r=aeRange(),sr=AE.sr;
+  aeMsg("Cargando el motor de reducción de ruido…");
+  loadRn().then(function(ok){
+    if(!ok)throw new Error("No pude cargar el motor (¿sin conexión la primera vez?).");
+    return resampleF(AE.f.slice(r[0],r[1]),sr,48000);
+  }).then(function(f48){return rnRun(f48,k,function(p){aeMsg("Reduciendo ruido… "+Math.round(p*100)+"%")})})
+   .then(function(o){return resampleF(o,48000,sr)})
+   .then(function(seg){var o=AE.f.slice();aePaste(o,r,seg);aeCommit(o,true);aeMsg("Ruido reducido ("+Math.round(k*100)+"%). Escucha el resultado; si suena seco, deshaz y baja la intensidad.")})
+   .catch(function(e){aeMsg("No se pudo reducir el ruido: "+(e&&e.message?e.message:e))}).then(function(){AE.busy=false});
+}
+function aeOpen(){
+  if(!nrPcm)return;
+  AE.f=pcmToFloat(nrPcm);AE.sr=nrRate;AE.und=[];AE.red=[];AE.sel=null;AE.regs=[];AE.cur=0;AE.vs=0;AE.busy=false;
+  $("aeFmt").value=nrExt;$("aed").classList.add("open");
+  aePeaks();
+  AE.pps=aeViewW()/Math.max(0.5,aeDur());
+  setTimeout(function(){AE.pps=aeViewW()/Math.max(0.5,aeDur());aeRefresh()},40);
+  aeRefresh();aeMsg("Arrastra sobre la onda para seleccionar. Toca para colocar el cursor. Rueda del ratón = desplazar; Ctrl + rueda = zoom.");
+}
+function aeClose(){aeStop();$("aed").classList.remove("open");AE.f=null;AE.und=[];AE.red=[];AE.buf=null;AE.pk=null}
+function aeApply(){
+  if(AE.busy)return;
+  var ext=$("aeFmt").value,f=AE.f,sr=AE.sr;
+  aeMsg("Preparando el archivo…");
+  (ext==="mp3"?loadLame():Promise.resolve(true)).then(function(ok){
+    if(ext==="mp3"&&(!ok||[8000,11025,12000,16000,22050,24000,32000,44100,48000].indexOf(sr)<0))ext="wav";
+    var blob=encFloat(f,sr,ext),n=f.length,pcm=new Int16Array(n),i,v;
+    for(i=0;i<n;i++){v=f[i];if(v>1)v=1;else if(v<-1)v=-1;pcm[i]=v<0?v*32768:v*32767}
+    origBlob=blob;cleanBlob=null;nrPcm=[pcm];nrExt=ext;nrRate=sr;
+    var base=doneName.replace(/_limpio(?=\.[^.]+$)/,"").replace(/_editado(?=\.[^.]+$)/,"").replace(/\.[^.]+$/,"");
+    doneName=base+"_editado."+ext;
+    nrReset();nrShow("o");
+    $("doneI").textContent=doneName+" · "+(blob.size/1048576).toFixed(1)+" MB · duración "+aeT(n/sr)+" · "+(ext==="mp3"?"MP3 128 kbps":"WAV 16 bits")+" · mono · "+Math.round(sr/100)/10+" kHz. Editado. Si cierras esto sin guardar, se pierde.";
+    aeClose();
+  });
+}
+(function(){
+  var cv=$("aeCv"),wrap=$("aeWrap");
+  var tAt=function(e){var rc=cv.getBoundingClientRect();return AE.vs+(e.clientX-rc.left)/AE.pps};
+  cv.addEventListener("pointerdown",function(e){
+    if(!AE.f)return;try{cv.setPointerCapture(e.pointerId)}catch(x){}
+    var t=tAt(e),ed=8/AE.pps,mode="new";
+    if(AE.sel){if(Math.abs(t-AE.sel.a)<ed)mode="a";else if(Math.abs(t-AE.sel.b)<ed)mode="b"}
+    AE.drag={x:e.clientX,t:t,mode:mode,moved:false};
+  });
+  cv.addEventListener("pointermove",function(e){
+    var d=AE.drag;if(!d)return;
+    if(!d.moved&&Math.abs(e.clientX-d.x)<4)return;d.moved=true;
+    var t=Math.max(0,Math.min(aeDur(),tAt(e)));
+    if(d.mode==="new")AE.sel={a:Math.min(d.t,t),b:Math.max(d.t,t)};
+    else if(d.mode==="a")AE.sel.a=Math.min(t,AE.sel.b-0.01);
+    else AE.sel.b=Math.max(t,AE.sel.a+0.01);
+    aeUi();aeDraw();
+  });
+  var up=function(e){
+    var d=AE.drag;AE.drag=null;if(!d)return;
+    if(!d.moved){AE.sel=null;AE.cur=Math.max(0,Math.min(aeDur(),d.t));if(AE.playing){aeStop();aePlay()}}
+    aeUi();aeDraw();
+  };
+  cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+  wrap.addEventListener("wheel",function(e){
+    if(!AE.f)return;e.preventDefault();
+    if(e.ctrlKey||e.metaKey){
+      var t=tAt(e),rc=cv.getBoundingClientRect(),px=e.clientX-rc.left;
+      AE.pps*=e.deltaY<0?1.25:0.8;AE.vs=t-px/AE.pps;
+    }else AE.vs+=(e.deltaX||e.deltaY)/AE.pps*1.2;
+    aeRefresh();
+  },{passive:false});
+  $("aeSc").addEventListener("input",function(){AE.vs=+this.value;aeDraw()});
+  window.addEventListener("resize",function(){if($("aed").classList.contains("open"))aeRefresh()});
+  $("aeZi").addEventListener("click",function(){var c=AE.playing?AE.cur:(AE.sel?(AE.sel.a+AE.sel.b)/2:AE.vs+aeViewW()/AE.pps/2);AE.pps*=1.6;AE.vs=c-aeViewW()/AE.pps/2;aeRefresh()});
+  $("aeZo").addEventListener("click",function(){var c=AE.vs+aeViewW()/AE.pps/2;AE.pps/=1.6;AE.vs=c-aeViewW()/AE.pps/2;aeRefresh()});
+  $("aeFit").addEventListener("click",function(){AE.pps=aeViewW()/Math.max(0.5,aeDur());AE.vs=0;aeRefresh()});
+  $("aeSelZ").addEventListener("click",function(){if(!AE.sel)return;AE.pps=aeViewW()/Math.max(0.2,(AE.sel.b-AE.sel.a)*1.1);AE.vs=AE.sel.a-(AE.sel.b-AE.sel.a)*0.05;aeRefresh()});
+  $("aeSelAll").addEventListener("click",function(){AE.sel={a:0,b:aeDur()};aeUi();aeDraw()});
+  $("aeHome").addEventListener("click",function(){var w=AE.playing;aeStop();AE.cur=AE.sel?AE.sel.a:0;AE.vs=Math.max(0,AE.cur-0.2);aeRefresh();if(w)aePlay()});
+  $("aePlay").addEventListener("click",aePlay);
+  $("aeLoop").addEventListener("click",function(){this.classList.toggle("on")});
+  $("aeUndo").addEventListener("click",aeUndo);$("aeRedo").addEventListener("click",aeRedo);
+  $("aeCut").addEventListener("click",aeCut);$("aeCrop").addEventListener("click",aeCrop);$("aeMute").addEventListener("click",aeMute);$("aeIns").addEventListener("click",aeInsSil);
+  $("aeSilShow").addEventListener("click",aeSilShow);$("aeSilCut").addEventListener("click",aeSilCut);
+  $("aeNorm").addEventListener("click",aeNorm);$("aeLoud").addEventListener("click",aeLoud);$("aeGo").addEventListener("click",aeGainDb);
+  $("aeFi").addEventListener("click",function(){aeFade(true)});$("aeFo").addEventListener("click",function(){aeFade(false)});
+  $("aeHpf").addEventListener("click",aeHpf);$("aeComp").addEventListener("click",aeComp);$("aeNoise").addEventListener("click",aeNoise);
+  $("aeCancel").addEventListener("click",aeClose);$("aeOk").addEventListener("click",aeApply);
+  $("doneE").addEventListener("click",aeOpen);
+  var rg=[["aeG","aeGO",function(v){return(v>0?"+":"")+v+" dB"}],["aeNk","aeNkO",function(v){return v+"%"}],["aeTh","aeThO",function(v){return v+" dB"}],["aeMin","aeMinO",function(v){return(+v).toFixed(2)+" s"}],["aePad","aePadO",function(v){return(+v).toFixed(2)+" s"}]];
+  rg.forEach(function(x){var el=$(x[0]),o=$(x[1]),u=function(){o.textContent=x[2](el.value)};el.addEventListener("input",u);u()});
+  document.addEventListener("keydown",function(e){
+    if(!$("aed").classList.contains("open")||$("dlg").classList.contains("open"))return;
+    var tg=e.target&&e.target.tagName;if(tg==="SELECT"||(tg==="INPUT"&&e.target.type!=="range"))return;
+    if(e.key===" "){e.preventDefault();e.stopPropagation();aePlay()}
+    else if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();e.stopPropagation();aeCut()}
+    else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();e.stopPropagation();e.shiftKey?aeRedo():aeUndo()}
+    else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();e.stopPropagation();aeRedo()}
+    else if(e.key==="Escape"){e.stopPropagation()}
+  },true);
+})();
+
+/* ---- Menus plegables y abrir audios anteriores ---- */
+(function(){
+  [["chMore","chMx"],["scMore","scMx"]].forEach(function(x){
+    $(x[0]).addEventListener("click",function(){$(x[1]).classList.toggle("open")});
+    $(x[1]).addEventListener("click",function(){setTimeout(function(){$(x[1]).classList.remove("open")},0)});
+  });
+  $("aeOpenFile").addEventListener("click",function(){$("aeFile").click()});
+  $("aeFile").addEventListener("change",function(){
+    var f=this.files&&this.files[0];this.value="";if(!f)return;
+    var bt=$("aeOpenFile"),AC=window.AudioContext||window.webkitAudioContext,ac=null;
+    bt.disabled=true;bt.textContent="Cargando audio…";
+    try{ac=new AC({sampleRate:48000})}catch(e){try{ac=new AC()}catch(x){}}
+    var fin=function(){bt.disabled=false;bt.textContent="Abrir un audio en el editor";try{ac&&ac.close()}catch(e){}};
+    if(!ac){fin();dlgOpen({title:"No se pudo abrir",msg:"Este navegador no permite decodificar audio.",ok:"Entendido"},function(){});return}
+    f.arrayBuffer().then(function(b){return new Promise(function(res,rej){ac.decodeAudioData(b,res,rej)})}).then(function(buf){
+      var n=buf.length,nc=buf.numberOfChannels,m=new Float32Array(n),c,i,d,pcm=new Int16Array(n),v;
+      for(c=0;c<nc;c++){d=buf.getChannelData(c);for(i=0;i<n;i++)m[i]+=d[i]/nc}
+      for(i=0;i<n;i++){v=m[i];if(v>1)v=1;else if(v<-1)v=-1;pcm[i]=v<0?v*32768:v*32767}
+      nrPcm=[pcm];nrRate=buf.sampleRate;
+      nrExt=(/mpeg|mp3/i.test(f.type)||/\.mp3$/i.test(f.name))?"mp3":"wav";
+      origBlob=f;cleanBlob=null;doneBlob=f;doneName=f.name;
+      if(doneUrl)URL.revokeObjectURL(doneUrl);
+      doneUrl=URL.createObjectURL(f);$("doneV").src=doneUrl;$("doneT").textContent="Audio abierto";
+      $("doneI").textContent=f.name+" · "+(f.size/1048576).toFixed(1)+" MB · duración "+aeT(n/buf.sampleRate)+" · "+Math.round(buf.sampleRate/100)/10+" kHz · "+nc+(nc===1?" canal":" canales (se mezclan a mono para editar)")+".";
+      nrReset();$("done").classList.add("open");aeOpen();
+    }).catch(function(e){dlgOpen({title:"No se pudo abrir el audio",msg:"Ese archivo no se pudo decodificar. Prueba con MP3, WAV o M4A.",ok:"Entendido"},function(){})}).then(fin);
+  });
+})();
 /* ---- Botones personalizables ---- */
 var ACT=[
   {id:"playpause",n:"Play / Pausa",run:1,fn:toggle},
