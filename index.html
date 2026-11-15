@@ -1979,16 +1979,24 @@ function recOpenDb(){
     if(!window.indexedDB)return rej(new Error("sin IndexedDB"));
     var q=indexedDB.open("tp_rec",1);
     q.onupgradeneeded=function(){var d=q.result;d.createObjectStore("m",{keyPath:"id"});d.createObjectStore("b",{keyPath:"id"})};
-    q.onsuccess=function(){recDb=q.result;res(recDb)};
+    q.onsuccess=function(){recDb=q.result;recDb.onclose=function(){recDb=null};recDb.onversionchange=function(){try{recDb.close()}catch(e){}recDb=null};res(recDb)};
     q.onerror=function(){rej(q.error)};
+    q.onblocked=function(){rej(new Error("bloqueada"))};
   });
 }
-function recTx(mode,fn){
+/* Safari cierra la conexión al suspender la app: si falla, se reabre y se reintenta una vez. */
+function recTx(mode,fn,retry){
   return recOpenDb().then(function(db){return new Promise(function(res,rej){
-    var tx=db.transaction(["m","b"],mode),out=fn(tx.objectStore("m"),tx.objectStore("b"));
+    var tx,out;
+    try{tx=db.transaction(["m","b"],mode);out=fn(tx.objectStore("m"),tx.objectStore("b"))}catch(e){rej(e);return}
     tx.oncomplete=function(){res(out&&out.result)};
-    tx.onerror=tx.onabort=function(){rej(tx.error)};
-  })});
+    tx.onerror=tx.onabort=function(){rej(tx.error||new Error("transacción cancelada"))};
+  })}).catch(function(e){
+    if(retry)throw e;
+    try{if(recDb)recDb.close()}catch(x){}
+    recDb=null;
+    return new Promise(function(r){setTimeout(r,250)}).then(function(){return recTx(mode,fn,true)});
+  });
 }
 function recSave(blob,name,kind,dur){
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
@@ -2010,13 +2018,13 @@ function rlRender(){
       h+='<div class="mgr" data-id="'+r.id+'"><input type="checkbox" data-a="sel"'+(rlSel[r.id]?" checked":"")+'><span class="t" data-a="play" title="'+esc(r.name)+'">'+(r.kind==="video"?"&#127910; ":"&#127908; ")+esc(r.name)+'</span><span class="sm">'+ds+" · "+rlFmtDur(r.dur)+" · "+(r.size/1048576).toFixed(1)+' MB</span>'+(r.kind==="audio"?'<button data-a="edit">Editar</button>':"")+'<button data-a="dl">Guardar</button><button data-a="del">&#10005;</button></div>';
     });
     $("rlList").innerHTML=h||'<div class="hint">Aún no hay grabaciones. Cada audio o video que grabes se guarda aquí solo.</div>';
-    $("rlInfo").textContent=a.length?a.length+" grabación"+(a.length===1?"":"es")+" · "+(tot/1048576).toFixed(1)+" MB en este dispositivo. Toca un nombre para reproducir. Si borras los datos del navegador, se pierden: usa «Guardar» para tener copia."
+    $("rlInfo").textContent=a.length?a.length+(a.length===1?" grabación":" grabaciones")+" · "+(tot/1048576).toFixed(1)+" MB en este dispositivo. Toca un nombre para reproducir. Si borras los datos del navegador, se pierden: usa «Guardar» para tener copia."
       :"Se guardan solas en este dispositivo al terminar de grabar.";
     $("rlAll").textContent=a.length&&n===a.length?"Quitar selección":"Seleccionar todo";
     $("rlDelSel").textContent="Eliminar seleccionadas"+(n?" ("+n+")":"");
     $("rlOpen").textContent="Mis grabaciones"+(a.length?" ("+a.length+")":"");
     rlAll=a;
-  }).catch(function(){$("rlInfo").textContent="No se pudo leer la biblioteca en este navegador."});
+  }).catch(function(e){$("rlInfo").textContent="No se pudo leer la biblioteca ("+(e&&(e.name||e.message)?(e.name||e.message):"error desconocido")+"). Cierra la app por completo, ábrela de nuevo y vuelve a intentar. Si estás en navegación privada, el navegador no permite guardar aquí.";$("rlList").innerHTML=""});
 }
 var rlAll=[];
 function rlGet(id){return recTx("readonly",function(M,B){return B.get(id)}).then(function(r){return r&&r.blob})}
@@ -2036,7 +2044,7 @@ $("rlAll").addEventListener("click",function(){
 $("rlDelSel").addEventListener("click",function(){
   var ids=rlAll.filter(function(r){return rlSel[r.id]}).map(function(r){return r.id});
   if(!ids.length){dlgOpen({title:"Nada seleccionado",msg:"Marca con la casilla las grabaciones que quieres eliminar.",ok:"Entendido"},function(){});return}
-  rlDel(ids,"Se eliminarán "+ids.length+" grabación"+(ids.length===1?"":"es")+".");
+  rlDel(ids,"Se eliminarán "+ids.length+(ids.length===1?" grabación":" grabaciones")+".");
 });
 $("rlDelAll").addEventListener("click",function(){
   if(!rlAll.length)return;rlDel(rlAll.map(function(r){return r.id}),"Se eliminarán TODAS las grabaciones ("+rlAll.length+").");
