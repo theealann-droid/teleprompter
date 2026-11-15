@@ -110,6 +110,8 @@ details.sec>.sb{padding:0 16px 16px;display:grid;gap:12px}
 .mgl{overflow:auto;display:grid;gap:6px;min-height:80px}
 .mgr{display:flex;align-items:center;gap:8px;background:#222;border:2px solid var(--ln);border-radius:12px;padding:4px 8px}
 .mgr.cur{border-color:var(--ac)}
+.mgr.gh{background:#14283a;border-color:var(--ac);margin-top:8px}
+.mgr.gh .t{font-weight:700;cursor:default}
 .mgr input[type=checkbox]{width:28px;height:28px;flex:none}
 .mgr .t{flex:1;min-height:44px;display:flex;align-items:center;font-size:18px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mgr .sm{color:var(--mt);font-size:14px;flex:none}
@@ -221,6 +223,7 @@ body.hide #hud{opacity:.35}
       <div class="sgr"><span>Calidad</span><div class="seg" data-k="camQ"><button data-v="720">720p</button><button data-v="1080">1080p</button></div></div>
       <div class="tg"><span>Cuadrícula de tercios</span><button id="camG">SÍ</button></div>
       <div class="tg"><span>Vista previa en espejo</span><button id="camM">SÍ</button></div>
+      <div class="tg"><span>Video por bloques (la pausa corta y permite borrar). Si falla, déjalo en NO</span><button id="vBlkT">NO</button></div>
       <div id="camst" class="hint"></div>
     </div>
     <button id="aeOpenFile">Abrir un audio en el editor</button>
@@ -362,7 +365,7 @@ body.hide #hud{opacity:.35}
 var $=function(i){return document.getElementById(i)};
 var DEFKEYS={playpause:[" "],back:["ArrowLeft","ArrowUp"],fwd:["ArrowRight","ArrowDown"],pgup:["PageUp"],pgdn:["PageDown"],home:["Home"],exit:["Escape"],wpmUp:["+","="],wpmDn:["-","_"],full:["f"],fsUp:[],fsDn:[],rec:["r"],rot:["g"],grid:["t"],zoomIn:["z"],zoomOut:["x"],swap:["c"]};
 function cloneKeys(k){var o={};for(var a in k)o[a]=[k[a][0]||"",k[a][1]||""];return o}
-var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,aud:false,audFmt:"mp3",micId:"",lib:null},S=Object.assign({},D);
+var KEY="tp_v1",D={script:"",wpm:140,fs:64,cw:60,lh:1.5,mir:false,keys:null,cam:false,camBack:false,camMir:true,camFmt:"h",camRot:0,camGrid:true,camFit:"fill",camQ:"1080",camZoom:1,aud:false,audFmt:"mp3",micId:"",vBlk:false,lib:null},S=Object.assign({},D);
 try{var j=JSON.parse(localStorage.getItem(KEY)||"null");if(j)S=Object.assign({},D,j)}catch(e){}
 (function(){var d=cloneKeys(DEFKEYS),u=S.keys||{};for(var a in d)if(u[a]&&u[a].length)d[a]=[u[a][0]||"",u[a][1]||""];S.keys=d})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -492,11 +495,11 @@ function tick(now){
     var ty=ptrTarget(ptr);yCur+=(ty-yCur)*(1-Math.exp(-dt*5));
     if(Math.abs(ty-yCur)<0.3)yCur=ty;
     if(siguiendo&&now-tOk>3500)siguiendo=false;
-    if(ptr>=nW){render();pause();return}
+    if(ptr>=nW){render();pause(true);return}
     render();raf=requestAnimationFrame(tick);return;
   }
   t+=dt;
-  if(t>=total){t=total;render();pause();return}
+  if(t>=total){t=total;render();pause(true);return}
   render();
   raf=requestAnimationFrame(tick);
 }
@@ -507,17 +510,21 @@ function play(){
   playing=true;last=performance.now();
   if(stream&&!rec&&!recUsed)recStart();
   if(audMode&&rec&&!audCur)audNewBlock();
-  if(!audMode&&rec&&rec.state==="paused"){rec.state="recording";vBlockStart()}
+  if(!audMode&&rec&&rec.state==="paused"){
+    rec.state="recording";
+    if(S.vBlk)vBlockStart();
+    else if(vLive){try{vLive.resume();vLive._t+=performance.now()-vPt}catch(e){}}
+  }
   $("pp").textContent="PAUSA";audUi();
   lockWake();showBar(false);audUi();
   raf=requestAnimationFrame(tick);
 }
-function pause(){
+function pause(keep){
   playing=false;cancelAnimationFrame(raf);
   $("pp").textContent="PLAY";
-  if(rec&&(audMode||S.cam)){
+  if(!keep&&rec&&(audMode||S.cam)){
     if(audMode)audBlockEnd();
-    else if(rec.state==="recording"){rec.state="paused";vStopLive()}
+    else if(rec.state==="recording"){rec.state="paused";vPt=performance.now();if(S.vBlk)vStopLive();else{try{vLive&&vLive.pause()}catch(e){}}}
     $("pp").innerHTML="&#9679; SEGUIR GRABANDO";render();
   }
   showBar(true);
@@ -927,6 +934,7 @@ function pdEnd(e,cancel){
   if(performance.now()-d.t0>250)return;
   var el=d.tg;
   if(follow()&&el&&el.classList&&el.classList.contains("w")){setPtr(parseInt(el.getAttribute("data-g"),10));siguiendo=false;return}
+  if(rec)return; /* grabando: un toque accidental no debe pausar ni cortar la grabación; usa el botón PAUSA */
   toggle();
 }
 /* Pellizcar para hacer zoom de cámara */
@@ -1045,6 +1053,7 @@ function camUi(){
   $("recSum").textContent=S.aud?"· Solo audio "+(S.audFmt==="wav"?"WAV":"MP3"):S.cam?"· Video "+S.camQ+"p "+(S.camFmt==="v"?"vertical":S.camFmt==="s"?"cuadrado":"horizontal"):"· Apagada";
   $("cam2").classList.toggle("off",!S.cam);
   $("audst").textContent=S.aud?"Al pulsar INICIAR se abre el micrófono; la grabación empieza con el botón verde (cuenta atrás de 3 s). Al terminar podrás guardar o compartir el archivo "+(S.audFmt==="wav"?"WAV (calidad máxima, pesa más)":"MP3 (128 kbps, pesa poco)")+". Mono.":"";
+  $("vBlkT").textContent=S.vBlk?"SÍ":"NO";$("vBlkT").classList.toggle("on",!!S.vBlk);
   $("camM").textContent=S.camMir?"SÍ":"NO";$("camM").classList.toggle("on",S.camMir);
   $("camG").textContent=S.camGrid?"SÍ":"NO";$("camG").classList.toggle("on",S.camGrid);
   var sg=document.querySelectorAll("#cam2 .seg,#aud2 .seg");
@@ -1101,6 +1110,7 @@ function drawLoop(){
 $("camT").addEventListener("click",function(){S.cam=!S.cam;if(S.cam)S.aud=false;save();camUi()});
 $("audT").addEventListener("click",function(){S.aud=!S.aud;if(S.aud)S.cam=false;save();camUi()});
 $("camM").addEventListener("click",function(){S.camMir=!S.camMir;save();camUi()});
+$("vBlkT").addEventListener("click",function(){S.vBlk=!S.vBlk;save();camUi()});
 function camSwitch(){
   if(!stream||rec)return;
   S.camBack=!S.camBack;save();camUi();
@@ -1172,7 +1182,7 @@ function recChip(){
   var lv="";if(audMode){var k=Math.min(5,Math.round(audLvl*9));lv=" "+"▮▮▮▮▮".slice(0,k)+"▯▯▯▯▯".slice(0,5-k)}
   if(audMode)return'<span class="chip rec">'+(audCur?"● REC ":"⏸ PAUSA ")+fmt(audTot())+" · bloque "+(audCur?audBl.length:audBl.length+1)+(audCur?lv:"")+'</span>';
   var vp=rec.state==="paused";
-  return'<span class="chip rec">'+(vp?"⏸ PAUSA ":"● REC ")+fmt(vTot())+" · bloque "+(vp?vBl.length+1:Math.max(1,vBl.length+(vLive?1:0)))+(vp?"":lv)+'</span>';
+  return'<span class="chip rec">'+(vp?"⏸ PAUSA ":"● REC ")+fmt(vTot())+(S.vBlk?" · bloque "+(vp?vBl.length+1:Math.max(1,vBl.length+(vLive?1:0))):"")+(vp?"":lv)+'</span>';
 }
 var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null,audBl=[],audCur=null,vPt=0;
 /* Bloques: cada vez que pausas y sigues, se abre un bloque nuevo; el último se puede borrar solo. */
@@ -1193,11 +1203,12 @@ function audUi(){
   var fc=$("fCtl"),fon=!!(rec&&running&&(audMode||S.cam));
   fc.style.display=fon?"":"none";
   if(fon){
-    $("fPause").innerHTML=playing?"&#9208; PAUSA":"&#9679; SEGUIR";
+    $("fPause").innerHTML=(audMode?!!audCur:rec.state==="recording")?"&#9208; PAUSA":"&#9679; SEGUIR";
     var nb=audMode?audBl.length:vBl.length+(vLive?1:0);
     $("fDel").disabled=!nb;
-    $("fDel").textContent="\u{1F5D1} Borrar bloque"+(!playing&&nb?" ("+fmt(audMode?audBl[nb-1].n/audRate:vBl[nb-1].dur)+")":"");
-    $("fBl").style.display=audMode?"none":"";
+    $("fDel").textContent="\u{1F5D1} Borrar bloque"+(!playing&&(audMode?audBl.length:vBl.length)?" ("+fmt(audMode?audBl[audBl.length-1].n/audRate:vBl[vBl.length-1].dur)+")":"");
+    $("fBl").style.display=(!audMode&&S.vBlk)?"":"none";
+    $("fDel").style.display=(audMode||S.vBlk)?"":"none";
     $("fBl").textContent="\u{1F39E} Bloques ("+nb+")";
     fc.style.bottom=(document.body.classList.contains("hide")?22:($("bar").offsetHeight+14))+"px";
   }
@@ -1205,7 +1216,7 @@ function audUi(){
 }
 function audDelLast(){
   if(!rec)return;
-  if(playing)pause();
+  if(recOn()||playing)pause();
   if(!audMode){
     vWhenIdle(function(){
       if(!vBl.length)return;
@@ -1342,31 +1353,34 @@ function mp4Join(bs){
       }
       if(!moov||!fr.length)throw new Error("no fragmentado");
       if(k===0){first=u.slice(0,fr[0][0]);m=mp4Info(u,moov)}
+      var minS=1e12;
       parts=fr.map(function(r){
         var c=u.slice(r[0],r[1]),f=mp4Frag(c,m);
-        f.info.forEach(function(x){var e2=(x.t0+x.dur)/(m.ts[x.id]||1);if(e2>maxS)maxS=e2});
+        f.info.forEach(function(x){var s0=x.t0/(m.ts[x.id]||1),e2=(x.t0+x.dur)/(m.ts[x.id]||1);if(e2>maxS)maxS=e2;if(s0<minS)minS=s0});
         return {c:c,f:f};
       });
+      if(minS>1e11)minS=0;
       parts.forEach(function(p){
         var dv=new DataView(p.c.buffer);
         p.f.info.forEach(function(x){
-          var nv=x.t0+Math.round(cum*(m.ts[x.id]||1));
+          var tsx=m.ts[x.id]||1,nv=Math.max(0,x.t0-Math.round(minS*tsx)+Math.round(cum*tsx));
           if(x.ver===1){dv.setUint32(x.pos,Math.floor(nv/4294967296));dv.setUint32(x.pos+4,nv>>>0)}
           else{if(nv>4294967295)throw new Error("largo");dv.setUint32(x.pos,nv)}
         });
         if(p.f.mfhd>=0)dv.setUint32(p.f.mfhd,++seq);
         out.push(p.c);
       });
-      cum+=maxS;
+      cum+=maxS-minS;
     });
     return {blob:new Blob([first].concat(out),{type:"video/mp4"}),dur:cum};
   });
 }
-$("fBl").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();vWhenIdle(function(){vEdOpen(false)})});
+$("fBl").addEventListener("click",function(e){e.stopPropagation();if(recOn()||playing)pause();vWhenIdle(function(){vEdOpen(false)})});
 $("fCtl").addEventListener("pointerdown",function(e){e.stopPropagation()});
-$("fPause").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();else play()});
+function recOn(){return !!rec&&(audMode?!!audCur:rec.state==="recording")}
+$("fPause").addEventListener("click",function(e){e.stopPropagation();if(recOn())pause();else play()});
 $("fDel").addEventListener("click",function(e){e.stopPropagation();audDelLast()});
-$("fStop").addEventListener("click",function(e){e.stopPropagation();if(playing)pause();recStop()});
+$("fStop").addEventListener("click",function(e){e.stopPropagation();if(recOn()||playing)pause();recStop()});
 $("delB").addEventListener("click",audDelLast);
 function loadLame(){
   if(window.lamejs&&lamejs.Mp3Encoder)return Promise.resolve(true);
@@ -2012,10 +2026,25 @@ function rlFmtDur(s){s=Math.round(s||0);var m=Math.floor(s/60);return m+":"+(s%6
 function rlRender(){
   rlList().then(function(a){
     var h="",tot=0,n=0;
-    a.forEach(function(r){
-      tot+=r.size;if(rlSel[r.id])n++;
-      var d=new Date(r.t),ds=d.toLocaleDateString("es",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"});
-      h+='<div class="mgr" data-id="'+r.id+'"><input type="checkbox" data-a="sel"'+(rlSel[r.id]?" checked":"")+'><span class="t" data-a="play" title="'+esc(r.name)+'">'+(r.kind==="video"?"&#127910; ":"&#127908; ")+esc(r.name)+'</span><span class="sm">'+ds+" · "+rlFmtDur(r.dur)+" · "+(r.size/1048576).toFixed(1)+' MB</span>'+(r.kind==="audio"?'<button data-a="edit">Editar</button>':"")+'<button data-a="dl">Guardar</button><button data-a="del">&#10005;</button></div>';
+    /* Sesiones: se agrupan por día y por guion; dentro de cada grupo van en el orden en que se grabaron (1, 2, 3…). */
+    var gs={},order=[];
+    a.slice().sort(function(x,y){return x.t-y.t}).forEach(function(r){
+      var d=new Date(r.t),k=d.toDateString()+"|"+(r.script||"");
+      if(!gs[k]){gs[k]={d:d,sc:r.script||"",rs:[],last:0};order.push(k)}
+      gs[k].rs.push(r);gs[k].last=r.t;
+    });
+    order.sort(function(x,y){return gs[y].last-gs[x].last});
+    rlG=[];
+    order.forEach(function(k,gi){
+      var g=gs[k],allSel=g.rs.every(function(r){return rlSel[r.id]}),gt=0;
+      rlG.push(g.rs);
+      g.rs.forEach(function(r){gt+=r.size});
+      h+='<div class="mgr gh" data-g="'+gi+'"><input type="checkbox" data-a="gsel"'+(allSel?" checked":"")+'><span class="t">&#128197; '+esc(g.d.toLocaleDateString("es",{weekday:"short",day:"numeric",month:"short"}))+(g.sc?" · «"+esc(g.sc)+"»":"")+" · "+g.rs.length+(g.rs.length===1?" grabación":" grabaciones")+'</span><span class="sm">'+(gt/1048576).toFixed(1)+' MB</span><button data-a="gsave">Guardar grupo</button></div>';
+      g.rs.forEach(function(r,i){
+        tot+=r.size;if(rlSel[r.id])n++;
+        var d=new Date(r.t),ds=d.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"});
+        h+='<div class="mgr" data-id="'+r.id+'"><input type="checkbox" data-a="sel"'+(rlSel[r.id]?" checked":"")+'><span class="t" data-a="play" title="'+esc(r.name)+'"><b>'+(i+1)+'.</b>&nbsp;'+(r.kind==="video"?"&#127910; ":"&#127908; ")+esc(r.name)+'</span><span class="sm">'+ds+" · "+rlFmtDur(r.dur)+" · "+(r.size/1048576).toFixed(1)+' MB</span>'+(r.kind==="audio"?'<button data-a="edit">Editar</button>':"")+'<button data-a="dl">Guardar</button><button data-a="del">&#10005;</button></div>';
+      });
     });
     $("rlList").innerHTML=h||'<div class="hint">Aún no hay grabaciones. Cada audio o video que grabes se guarda aquí solo.</div>';
     $("rlInfo").textContent=a.length?a.length+(a.length===1?" grabación":" grabaciones")+" · "+(tot/1048576).toFixed(1)+" MB. Están guardadas dentro de esta app (no aparecen en Archivos ni en Fotos). Toca un nombre para reproducir. Para sacarlas, usa «Guardar» en cada una, o «Guardar seleccionadas» / «Guardar todas». Si borras los datos de Safari, se pierden."
@@ -2026,7 +2055,7 @@ function rlRender(){
     rlAll=a;
   }).catch(function(e){$("rlInfo").textContent="No se pudo leer la biblioteca ("+(e&&(e.name||e.message)?(e.name||e.message):"error desconocido")+"). Cierra la app por completo, ábrela de nuevo y vuelve a intentar. Si estás en navegación privada, el navegador no permite guardar aquí.";$("rlList").innerHTML=""});
 }
-var rlAll=[];
+var rlAll=[],rlG=[];
 function rlGet(id){return recTx("readonly",function(M,B){return B.get(id)}).then(function(r){return r&&r.blob})}
 function rlDel(ids,msg){
   dlgOpen({title:"Eliminar",msg:msg+" No se puede deshacer.",ok:"Eliminar",danger:true},function(){
@@ -2071,6 +2100,13 @@ $("rlDelAll").addEventListener("click",function(){
 });
 $("rlList").addEventListener("click",function(e){
   var el=e.target.closest&&e.target.closest("[data-a]");if(!el)return;
+  var gh=el.closest(".gh");
+  if(gh){
+    var gr=rlG[parseInt(gh.getAttribute("data-g"),10)]||[];
+    if(el.getAttribute("data-a")==="gsel"){gr.forEach(function(x){if(el.checked)rlSel[x.id]=true;else delete rlSel[x.id]});rlRender()}
+    else if(el.getAttribute("data-a")==="gsave")rlSaveMany(gr);
+    return;
+  }
   var id=el.closest(".mgr").getAttribute("data-id"),a=el.getAttribute("data-a"),r=null;
   rlAll.forEach(function(x){if(x.id===id)r=x});if(!r)return;
   if(a==="sel"){if(el.checked)rlSel[id]=true;else delete rlSel[id];rlRender()}
