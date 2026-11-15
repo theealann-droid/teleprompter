@@ -493,6 +493,7 @@ function play(){
   playing=true;last=performance.now();
   if(stream&&!rec&&!recUsed)recStart();
   if(audMode&&rec&&!audCur)audNewBlock();
+  if(!audMode&&rec&&rec.state==="paused"){try{rec.resume();recT0+=performance.now()-vPt}catch(e){}}
   $("pp").textContent="PAUSA";audUi();
   lockWake();showBar(false);audUi();
   raf=requestAnimationFrame(tick);
@@ -500,9 +501,13 @@ function play(){
 function pause(){
   playing=false;cancelAnimationFrame(raf);
   $("pp").textContent="PLAY";
-  if(audMode&&rec){audBlockEnd();$("pp").innerHTML="&#9679; SEGUIR GRABANDO";render()}
+  if(rec&&(audMode||S.cam)){
+    if(audMode)audBlockEnd();
+    else if(rec.state==="recording"){try{rec.pause();vPt=performance.now()}catch(e){}}
+    $("pp").innerHTML="&#9679; SEGUIR GRABANDO";render();
+  }
   showBar(true);
-  if(audMode&&rec)audUi();
+  if(rec&&(audMode||S.cam))audUi();
 }
 function toggle(){
   if(counting){cancelCount();return}
@@ -1116,9 +1121,10 @@ function recChip(){
   if(!rec)return"";
   var lv="";if(audMode){var k=Math.min(5,Math.round(audLvl*9));lv=" "+"▮▮▮▮▮".slice(0,k)+"▯▯▯▯▯".slice(0,5-k)}
   if(audMode)return'<span class="chip rec">'+(audCur?"● REC ":"⏸ PAUSA ")+fmt(audTot())+" · bloque "+(audCur?audBl.length:audBl.length+1)+(audCur?lv:"")+'</span>';
-  return'<span class="chip rec">● REC '+fmt((performance.now()-recT0)/1000)+lv+'</span>';
+  var vp=rec.state==="paused";
+  return'<span class="chip rec">'+(vp?"⏸ PAUSA ":"● REC ")+fmt(((vp?vPt:performance.now())-recT0)/1000)+(vp?"":lv)+'</span>';
 }
-var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null,audBl=[],audCur=null;
+var audMode=false,audCtx=null,audNode=null,audSrc=null,audZ=null,audChunks=[],audMp3=[],audEnc=null,audLvl=0,audN=0,audRate=44100,audFmtUse="wav",lameP=null,audBl=[],audCur=null,vPt=0;
 /* Bloques: cada vez que pausas y sigues, se abre un bloque nuevo; el último se puede borrar solo. */
 function audNewBlock(){
   audCur={ch:[],mp3:[],n:0,t:t,ptr:ptr,y:yCur,enc:audFmtUse==="mp3"?new lamejs.Mp3Encoder(1,audRate,128):null};
@@ -1134,10 +1140,11 @@ function audTot(){var s=0;for(var i=0;i<audBl.length;i++)s+=audBl[i].n;return s/
 function audUi(){
   var b=$("delB"),on=audMode&&rec&&!playing&&!audCur&&audBl.length>0;
   b.style.display=on?"":"none";
-  var fc=$("fCtl"),fon=!!(audMode&&rec&&running);
+  var fc=$("fCtl"),fon=!!(rec&&running&&(audMode||S.cam));
   fc.style.display=fon?"":"none";
   if(fon){
     $("fPause").innerHTML=playing?"&#9208; PAUSA":"&#9679; SEGUIR";
+    $("fDel").style.display=audMode?"":"none";
     $("fDel").disabled=!audBl.length;
     $("fDel").textContent="\u{1F5D1} Borrar bloque"+(audBl.length?" ("+fmt(audBl[audBl.length-1].n/audRate)+")":"");
     fc.style.bottom=(document.body.classList.contains("hide")?22:($("bar").offsetHeight+14))+"px";
