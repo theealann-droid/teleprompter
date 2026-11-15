@@ -101,10 +101,11 @@ details.sec>.sb{padding:0 16px 16px;display:grid;gap:12px}
 .lr .mo{min-width:52px;padding:0 10px}
 #cam2.off>*:not(:first-child){display:none}
 #setup .r #go{position:sticky;bottom:0}
-#mgr{position:fixed;inset:0;z-index:65;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
-#mgr.open{display:flex}
-#mgr .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
-#mgr .ft{display:flex;gap:10px;justify-content:flex-end}
+#mgr,#rl{position:fixed;inset:0;z-index:65;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:16px}
+#mgr.open,#rl.open{display:flex}
+#rl video{width:100%;max-height:30vh;background:#000;border-radius:12px;flex:none}
+#mgr .box,#rl .box{background:var(--pn);border:2px solid var(--ln);border-radius:16px;padding:18px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
+#mgr .ft,#rl .ft{display:flex;gap:10px;justify-content:flex-end}
 #mgr select{min-height:48px;font-size:18px;max-width:100%}
 .mgl{overflow:auto;display:grid;gap:6px;min-height:80px}
 .mgr{display:flex;align-items:center;gap:8px;background:#222;border:2px solid var(--ln);border-radius:12px;padding:4px 8px}
@@ -183,6 +184,7 @@ body.hide #hud{opacity:.35}
     <div class="hint">Marcas (línea sola): <b>[PAUSA]</b> <b>[CORTE]</b> <b>[ENFATIZAR: texto]</b>. No cuentan como palabras. <span id="hk1" style="display:none"></span></div>
   </div>
   <div class="r">
+    <button id="rlOpen">Mis grabaciones</button>
     <details class="sec" open><summary>Lectura</summary><div class="sb">
     <div id="panelHome">
       <div id="panel">
@@ -271,6 +273,16 @@ body.hide #hud{opacity:.35}
       <label class="row">Ganancia<input type="range" id="aeG" min="-12" max="12" step="1" value="3"><output id="aeGO"></output></label>
       <div class="bt"><button id="aeGo">Aplicar ganancia</button><button id="aeNorm">Normalizar (pico −1 dB)</button><button id="aeLoud">Volumen de voz para YouTube</button><button id="aeFi">Fundido de entrada</button><button id="aeFo">Fundido de salida</button></div>
       <div class="hint">Sin selección, todo actúa sobre el audio completo.</div></div>
+  </div>
+</div>
+<div id="rl">
+  <div class="box">
+    <h2 style="margin:0;font-size:22px">Mis grabaciones</h2>
+    <div class="hint" id="rlInfo"></div>
+    <div class="lr"><button id="rlAll">Seleccionar todo</button><button id="rlDelSel">Eliminar seleccionadas</button><button id="rlDelAll">Eliminar todas</button></div>
+    <video id="rlV" controls playsinline style="display:none"></video>
+    <div class="mgl" id="rlList"></div>
+    <div class="ft"><button class="pri" id="rlClose">Cerrar</button></div>
   </div>
 </div>
 <div id="mgr">
@@ -1160,8 +1172,9 @@ function audRecFinish(){
   doneName="audio_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext;
   if(doneUrl)URL.revokeObjectURL(doneUrl);
   doneUrl=URL.createObjectURL(doneBlob);$("doneV").src=doneUrl;
-  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · duración "+fmt(n/audRate)+" · "+recInfo+". Si cierras esto sin guardar, se pierde.";
+  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · duración "+fmt(n/audRate)+" · "+recInfo+". Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella.";
   $("doneT").textContent="Audio listo";nrReset();
+  recSave(doneBlob,doneName,"audio",n/audRate);
   $("done").classList.add("open");
 }
 var RECCANDS=["video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
@@ -1215,8 +1228,9 @@ function showDone(mt){
   doneUrl=URL.createObjectURL(doneBlob);
   $("doneV").src=doneUrl;$("doneT").textContent="Grabación lista";$("nrBox").style.display="none";$("doneE").style.display="none";
   var seg=Math.max(1,(performance.now()-recT0)/1000);
-  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Si cierras esto sin guardar, se pierde.";
+  $("doneI").textContent=doneName+" · "+(doneBlob.size/1048576).toFixed(1)+" MB · formato "+(mt||doneBlob.type)+" · "+recInfo+" · ≈"+(doneBlob.size*8/seg/1e6).toFixed(1)+" Mbps. Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella.";
   $("done").classList.add("open");
+  recSave(doneBlob,doneName,"video",seg);
 }
 function closeDone(){
   $("done").classList.remove("open");$("doneV").pause();$("doneV").removeAttribute("src");
@@ -1329,6 +1343,7 @@ $("nrGo").addEventListener("click",function(){
   }).then(function(o){
     cleanBlob=encFloat(o,nrRate,nrExt);
     if(origBlob)nrShow("c");
+    recSave(cleanBlob,doneName,"audio",o.length/nrRate);
     $("nrAB").style.display="flex";go.textContent="VOLVER A LIMPIAR";
     st.textContent="Listo. Alterna Original / Limpio para comparar y guarda el que prefieras. Si suena demasiado seco o se come tu voz, baja la intensidad y limpia otra vez.";
   }).catch(function(e){st.textContent="No se pudo limpiar: "+(e&&e.message?e.message:e)}).then(function(){nrBusy=false;go.disabled=false});
@@ -1554,7 +1569,8 @@ function aeApply(){
     var base=doneName.replace(/_limpio(?=\.[^.]+$)/,"").replace(/_editado(?=\.[^.]+$)/,"").replace(/\.[^.]+$/,"");
     doneName=base+"_editado."+ext;
     nrReset();nrShow("o");
-    $("doneI").textContent=doneName+" · "+(blob.size/1048576).toFixed(1)+" MB · duración "+aeT(n/sr)+" · "+(ext==="mp3"?"MP3 128 kbps":"WAV 16 bits")+" · mono · "+Math.round(sr/100)/10+" kHz. Editado. Si cierras esto sin guardar, se pierde.";
+    recSave(blob,doneName,"audio",n/sr);
+    $("doneI").textContent=doneName+" · "+(blob.size/1048576).toFixed(1)+" MB · duración "+aeT(n/sr)+" · "+(ext==="mp3"?"MP3 128 kbps":"WAV 16 bits")+" · mono · "+Math.round(sr/100)/10+" kHz. Editado. Se guarda sola en «Mis grabaciones» de esta app; usa Guardar o Compartir para tener una copia fuera de ella.";
     aeClose();
   });
 }
@@ -1628,8 +1644,7 @@ function aeApply(){
     $(x[1]).addEventListener("click",function(){setTimeout(function(){$(x[1]).classList.remove("open")},0)});
   });
   $("aeOpenFile").addEventListener("click",function(){$("aeFile").click()});
-  $("aeFile").addEventListener("change",function(){
-    var f=this.files&&this.files[0];this.value="";if(!f)return;
+  window.__aeLoad=function(f){
     var bt=$("aeOpenFile"),AC=window.AudioContext||window.webkitAudioContext,ac=null;
     bt.disabled=true;bt.textContent="Cargando audio…";
     try{ac=new AC({sampleRate:48000})}catch(e){try{ac=new AC()}catch(x){}}
@@ -1647,8 +1662,99 @@ function aeApply(){
       $("doneI").textContent=f.name+" · "+(f.size/1048576).toFixed(1)+" MB · duración "+aeT(n/buf.sampleRate)+" · "+Math.round(buf.sampleRate/100)/10+" kHz · "+nc+(nc===1?" canal":" canales (se mezclan a mono para editar)")+".";
       nrReset();$("done").classList.add("open");aeOpen();
     }).catch(function(e){dlgOpen({title:"No se pudo abrir el audio",msg:"Ese archivo no se pudo decodificar. Prueba con MP3, WAV o M4A.",ok:"Entendido"},function(){})}).then(fin);
-  });
+  };
+  $("aeFile").addEventListener("change",function(){var f=this.files&&this.files[0];this.value="";if(f)window.__aeLoad(f)});
 })();
+
+/* ---- Biblioteca de grabaciones (se guardan solas en este dispositivo) ---- */
+var recDb=null,rlSel={};
+function recOpenDb(){
+  return new Promise(function(res,rej){
+    if(recDb)return res(recDb);
+    if(!window.indexedDB)return rej(new Error("sin IndexedDB"));
+    var q=indexedDB.open("tp_rec",1);
+    q.onupgradeneeded=function(){var d=q.result;d.createObjectStore("m",{keyPath:"id"});d.createObjectStore("b",{keyPath:"id"})};
+    q.onsuccess=function(){recDb=q.result;res(recDb)};
+    q.onerror=function(){rej(q.error)};
+  });
+}
+function recTx(mode,fn){
+  return recOpenDb().then(function(db){return new Promise(function(res,rej){
+    var tx=db.transaction(["m","b"],mode),out=fn(tx.objectStore("m"),tx.objectStore("b"));
+    tx.oncomplete=function(){res(out&&out.result)};
+    tx.onerror=tx.onabort=function(){rej(tx.error)};
+  })});
+}
+function recSave(blob,name,kind,dur){
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+  var id=newId(),sc=null;try{sc=curSc()}catch(e){}
+  var m={id:id,name:name,t:Date.now(),kind:kind,type:blob.type||"",size:blob.size,dur:Math.round(dur||0),script:sc?sc.title:""};
+  return recTx("readwrite",function(M,B){M.put(m);B.put({id:id,blob:blob})}).then(function(){recCount();return id}).catch(function(){return null});
+}
+function recCount(){
+  return recTx("readonly",function(M){return M.count()}).then(function(n){$("rlOpen").textContent="Mis grabaciones"+(n?" ("+n+")":"")}).catch(function(){});
+}
+function rlList(){return recTx("readonly",function(M){return M.getAll()}).then(function(a){return(a||[]).sort(function(x,y){return y.t-x.t})})}
+function rlFmtDur(s){s=Math.round(s||0);var m=Math.floor(s/60);return m+":"+(s%60<10?"0":"")+(s%60)}
+function rlRender(){
+  rlList().then(function(a){
+    var h="",tot=0,n=0;
+    a.forEach(function(r){
+      tot+=r.size;if(rlSel[r.id])n++;
+      var d=new Date(r.t),ds=d.toLocaleDateString("es",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"});
+      h+='<div class="mgr" data-id="'+r.id+'"><input type="checkbox" data-a="sel"'+(rlSel[r.id]?" checked":"")+'><span class="t" data-a="play" title="'+esc(r.name)+'">'+(r.kind==="video"?"&#127910; ":"&#127908; ")+esc(r.name)+'</span><span class="sm">'+ds+" · "+rlFmtDur(r.dur)+" · "+(r.size/1048576).toFixed(1)+' MB</span>'+(r.kind==="audio"?'<button data-a="edit">Editar</button>':"")+'<button data-a="dl">Guardar</button><button data-a="del">&#10005;</button></div>';
+    });
+    $("rlList").innerHTML=h||'<div class="hint">Aún no hay grabaciones. Cada audio o video que grabes se guarda aquí solo.</div>';
+    $("rlInfo").textContent=a.length?a.length+" grabación"+(a.length===1?"":"es")+" · "+(tot/1048576).toFixed(1)+" MB en este dispositivo. Toca un nombre para reproducir. Si borras los datos del navegador, se pierden: usa «Guardar» para tener copia."
+      :"Se guardan solas en este dispositivo al terminar de grabar.";
+    $("rlAll").textContent=a.length&&n===a.length?"Quitar selección":"Seleccionar todo";
+    $("rlDelSel").textContent="Eliminar seleccionadas"+(n?" ("+n+")":"");
+    $("rlOpen").textContent="Mis grabaciones"+(a.length?" ("+a.length+")":"");
+    rlAll=a;
+  }).catch(function(){$("rlInfo").textContent="No se pudo leer la biblioteca en este navegador."});
+}
+var rlAll=[];
+function rlGet(id){return recTx("readonly",function(M,B){return B.get(id)}).then(function(r){return r&&r.blob})}
+function rlDel(ids,msg){
+  dlgOpen({title:"Eliminar",msg:msg+" No se puede deshacer.",ok:"Eliminar",danger:true},function(){
+    recTx("readwrite",function(M,B){ids.forEach(function(i){M.delete(i);B.delete(i)})}).then(function(){
+      ids.forEach(function(i){delete rlSel[i]});$("rlV").pause();$("rlV").style.display="none";rlRender();
+    });
+  });
+}
+$("rlOpen").addEventListener("click",function(){rlSel={};$("rlV").style.display="none";rlRender();$("rl").classList.add("open")});
+$("rlClose").addEventListener("click",function(){$("rlV").pause();$("rlV").removeAttribute("src");$("rl").classList.remove("open")});
+$("rlAll").addEventListener("click",function(){
+  var all=rlAll.length&&rlAll.every(function(r){return rlSel[r.id]});
+  rlAll.forEach(function(r){if(all)delete rlSel[r.id];else rlSel[r.id]=true});rlRender();
+});
+$("rlDelSel").addEventListener("click",function(){
+  var ids=rlAll.filter(function(r){return rlSel[r.id]}).map(function(r){return r.id});
+  if(!ids.length){dlgOpen({title:"Nada seleccionado",msg:"Marca con la casilla las grabaciones que quieres eliminar.",ok:"Entendido"},function(){});return}
+  rlDel(ids,"Se eliminarán "+ids.length+" grabación"+(ids.length===1?"":"es")+".");
+});
+$("rlDelAll").addEventListener("click",function(){
+  if(!rlAll.length)return;rlDel(rlAll.map(function(r){return r.id}),"Se eliminarán TODAS las grabaciones ("+rlAll.length+").");
+});
+$("rlList").addEventListener("click",function(e){
+  var el=e.target.closest&&e.target.closest("[data-a]");if(!el)return;
+  var id=el.closest(".mgr").getAttribute("data-id"),a=el.getAttribute("data-a"),r=null;
+  rlAll.forEach(function(x){if(x.id===id)r=x});if(!r)return;
+  if(a==="sel"){if(el.checked)rlSel[id]=true;else delete rlSel[id];rlRender()}
+  else if(a==="del")rlDel([id],"Se eliminará \""+r.name+"\".");
+  else if(a==="play")rlGet(id).then(function(b){if(!b)return;var V=$("rlV");if(V.dataset.u)URL.revokeObjectURL(V.dataset.u);var u=URL.createObjectURL(b);V.dataset.u=u;V.src=u;V.style.display="";V.play().catch(function(){})});
+  else if(a==="dl")rlGet(id).then(function(b){
+    if(!b)return;var f=null;try{f=new File([b],r.name,{type:r.type||b.type})}catch(x){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f]}).catch(function(){});
+    else saveBlob(b,r.name);
+  });
+  else if(a==="edit")rlGet(id).then(function(b){
+    if(!b)return;$("rlV").pause();$("rl").classList.remove("open");
+    var f;try{f=new File([b],r.name,{type:r.type||b.type})}catch(x){f=b;f.name=r.name}
+    window.__aeLoad(f);
+  });
+});
+recCount();
 /* ---- Botones personalizables ---- */
 var ACT=[
   {id:"playpause",n:"Play / Pausa",run:1,fn:toggle},
